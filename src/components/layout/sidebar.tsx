@@ -10,6 +10,8 @@ import {
   Calculator,
   Users,
   Contact,
+  BarChart3,
+  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,6 +23,7 @@ const modules: { name: string; href: string; icon: LucideIcon }[] = [
   { name: "Contabilidad", href: "/dashboard/contabilidad", icon: Calculator },
   { name: "RRHH", href: "/dashboard/rrhh", icon: Users },
   { name: "CRM", href: "/dashboard/crm", icon: Contact },
+  { name: "Reportes", href: "/dashboard/reportes", icon: BarChart3 },
 ];
 
 export function Sidebar() {
@@ -57,6 +60,20 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="px-3 pb-2">
+        <Link
+          href="/dashboard/configuracion"
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname.startsWith("/dashboard/configuracion")
+              ? "bg-blue-600/20 text-blue-400"
+              : "text-slate-300 hover:bg-slate-700 hover:text-white"
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          Configuración
+        </Link>
+      </div>
 
       <div className="p-4 border-t border-slate-700">
         <p className="text-xs text-slate-500">INNOVAQ Solutions</p>
