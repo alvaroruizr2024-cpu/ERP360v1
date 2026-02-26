@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { Pagination } from "@/components/ui/pagination";
+import { AdvancedFilters } from "@/components/ui/advanced-filters";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+
+const PAGE_SIZE = 15;
 
 const etapas = ["nuevo", "contactado", "propuesta", "negociacion", "ganado", "perdido"] as const;
 
@@ -22,27 +26,71 @@ const etapaColors: Record<string, string> = {
   perdido: "bg-red-900/50 text-red-400 border-red-700",
 };
 
-export default async function CRMPage() {
+export default async function CRMPage({
+  searchParams,
+}: {
+  searchParams: { page?: string; etapa?: string; origen?: string; valor_min?: string; valor_max?: string };
+}) {
+  const page = Math.max(1, Number(searchParams.page) || 1);
+  const etapaFilter = searchParams.etapa || "";
+  const origenFilter = searchParams.origen || "";
+  const valorMin = searchParams.valor_min ? Number(searchParams.valor_min) : null;
+  const valorMax = searchParams.valor_max ? Number(searchParams.valor_max) : null;
+
   const supabase = createClient();
-  const { data: leads } = await supabase
-    .from("leads")
-    .select("*")
-    .order("created_at", { ascending: false });
 
-  const allLeads = leads ?? [];
-
+  // Pipeline counts (always unfiltered)
+  const { data: allLeads } = await supabase.from("leads").select("etapa, valor_estimado");
   const pipeline = etapas.map((etapa) => {
-    const etapaLeads = allLeads.filter((l) => l.etapa === etapa);
+    const etapaLeads = (allLeads ?? []).filter((l) => l.etapa === etapa);
     const valor = etapaLeads.reduce((s, l) => s + Number(l.valor_estimado), 0);
     return { etapa, count: etapaLeads.length, valor };
   });
 
+  // Filtered + paginated query
+  let query = supabase.from("leads").select("*", { count: "exact" });
+  if (etapaFilter) query = query.eq("etapa", etapaFilter as "nuevo" | "contactado" | "propuesta" | "negociacion" | "ganado" | "perdido");
+  if (origenFilter) query = query.eq("origen", origenFilter);
+  if (valorMin !== null) query = query.gte("valor_estimado", valorMin);
+  if (valorMax !== null) query = query.lte("valor_estimado", valorMax);
+
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const { data: leads, count } = await query
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  // Unique origins for filter
+  const { data: origData } = await supabase.from("leads").select("origen");
+  const uniqueOrigenes = Array.from(new Set((origData ?? []).map((l) => l.origen).filter(Boolean))) as string[];
+
+  const filterConfig = [
+    {
+      key: "etapa",
+      label: "Etapa",
+      type: "select" as const,
+      options: etapas.map((e) => ({ value: e, label: etapaLabels[e] })),
+    },
+    {
+      key: "origen",
+      label: "Origen",
+      type: "select" as const,
+      options: uniqueOrigenes.map((o) => ({ value: o, label: o })),
+    },
+    {
+      key: "valor",
+      label: "Valor Estimado",
+      type: "number_range" as const,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">CRM</h1>
-          <p className="text-slate-400 mt-1">Pipeline de ventas y seguimiento</p>
+          <p className="text-slate-400 mt-1">{count ?? 0} leads</p>
         </div>
         <Link
           href="/dashboard/crm/nuevo"
@@ -65,6 +113,8 @@ export default async function CRMPage() {
         ))}
       </div>
 
+      <AdvancedFilters filters={filterConfig} />
+
       <div className="overflow-x-auto rounded-xl border border-slate-700">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-800 text-slate-400 uppercase text-xs">
@@ -78,7 +128,7 @@ export default async function CRMPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700">
-            {allLeads.map((l) => (
+            {(leads ?? []).map((l) => (
               <tr key={l.id} className="text-slate-300 hover:bg-slate-800/50">
                 <td className="px-4 py-3">
                   <Link
@@ -103,10 +153,12 @@ export default async function CRMPage() {
             ))}
           </tbody>
         </table>
-        {allLeads.length === 0 && (
+        {(leads ?? []).length === 0 && (
           <p className="text-center text-slate-500 py-8">No hay leads registrados</p>
         )}
       </div>
+
+      <Pagination totalItems={count ?? 0} pageSize={PAGE_SIZE} currentPage={page} />
     </div>
   );
 }

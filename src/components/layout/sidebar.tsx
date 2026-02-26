@@ -14,20 +14,22 @@ import {
   Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useI18n } from "@/lib/i18n/provider";
 
-const modules: { name: string; href: string; icon: LucideIcon }[] = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Ventas", href: "/dashboard/ventas", icon: TrendingUp },
-  { name: "Compras", href: "/dashboard/compras", icon: ShoppingCart },
-  { name: "Inventario", href: "/dashboard/inventario", icon: Package },
-  { name: "Contabilidad", href: "/dashboard/contabilidad", icon: Calculator },
-  { name: "RRHH", href: "/dashboard/rrhh", icon: Users },
-  { name: "CRM", href: "/dashboard/crm", icon: Contact },
-  { name: "Reportes", href: "/dashboard/reportes", icon: BarChart3 },
+const modules: { key: string; href: string; icon: LucideIcon }[] = [
+  { key: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { key: "nav.ventas", href: "/dashboard/ventas", icon: TrendingUp },
+  { key: "nav.compras", href: "/dashboard/compras", icon: ShoppingCart },
+  { key: "nav.inventario", href: "/dashboard/inventario", icon: Package },
+  { key: "nav.contabilidad", href: "/dashboard/contabilidad", icon: Calculator },
+  { key: "nav.rrhh", href: "/dashboard/rrhh", icon: Users },
+  { key: "nav.crm", href: "/dashboard/crm", icon: Contact },
+  { key: "nav.reportes", href: "/dashboard/reportes", icon: BarChart3 },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col shrink-0">
@@ -55,7 +57,7 @@ export function Sidebar() {
               }`}
             >
               <Icon className="w-5 h-5" />
-              {mod.name}
+              {t(mod.key)}
             </Link>
           );
         })}
@@ -71,7 +73,7 @@ export function Sidebar() {
           }`}
         >
           <Settings className="w-5 h-5" />
-          Configuración
+          {t("nav.configuracion")}
         </Link>
       </div>
 
