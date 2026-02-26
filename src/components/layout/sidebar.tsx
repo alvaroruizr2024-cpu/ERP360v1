@@ -20,6 +20,13 @@ import {
   DollarSign,
   LineChart,
   Shield,
+  CalendarDays,
+  Route,
+  FlaskConical,
+  Banknote,
+  UserCheck,
+  Activity,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n/provider";
@@ -44,6 +51,10 @@ const sections: NavSection[] = [
       { key: "nav.flota", href: "/dashboard/flota", icon: Truck },
       { key: "nav.combustible", href: "/dashboard/combustible", icon: Fuel },
       { key: "nav.costos", href: "/dashboard/costos", icon: DollarSign },
+      { key: "nav.zafra", href: "/dashboard/zafra", icon: CalendarDays },
+      { key: "nav.logistica", href: "/dashboard/logistica", icon: Route },
+      { key: "nav.laboratorio", href: "/dashboard/laboratorio", icon: FlaskConical },
+      { key: "nav.colonos", href: "/dashboard/colonos", icon: UserCheck },
     ],
   },
   {
@@ -61,8 +72,11 @@ const sections: NavSection[] = [
     items: [
       { key: "nav.contabilidad", href: "/dashboard/contabilidad", icon: Calculator },
       { key: "nav.rrhh", href: "/dashboard/rrhh", icon: Users },
+      { key: "nav.nomina", href: "/dashboard/nomina", icon: Banknote },
       { key: "nav.analytics", href: "/dashboard/analytics", icon: LineChart },
+      { key: "nav.bi", href: "/dashboard/bi", icon: Activity },
       { key: "nav.reportes", href: "/dashboard/reportes", icon: BarChart3 },
+      { key: "nav.mantenimiento_industrial", href: "/dashboard/mantenimiento-industrial", icon: Wrench },
     ],
   },
 ];
