@@ -126,12 +126,39 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Publication Banner */}
+      <section className="py-12 px-6 border-t border-slate-800 bg-gradient-to-r from-blue-600/10 to-cyan-600/10">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-sm text-slate-400 uppercase tracking-wider mb-2">Publicado en</p>
+          <a
+            href="https://www.innnovaqsolution.com/ERP360/TranscañaERP"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-lg font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            www.innnovaqsolution.com/ERP360/TranscañaERP
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+          </a>
+          <p className="text-sm text-slate-500 mt-2">TranscañaERP &mdash; Gestión Empresarial por INNOVAQ Solutions</p>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-slate-800 py-8 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between text-sm text-slate-500">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500">
           <span>
             ERP<span className="text-blue-400/60">360</span> &copy; {new Date().getFullYear()}
           </span>
+          <a
+            href="https://www.innnovaqsolution.com/ERP360/TranscañaERP"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-blue-400 transition-colors"
+          >
+            www.innnovaqsolution.com/ERP360/TranscañaERP
+          </a>
           <span>INNOVAQ Solutions</span>
         </div>
       </footer>
