@@ -12,6 +12,14 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "nav.crm": "CRM",
     "nav.reportes": "Reportes",
     "nav.configuracion": "Configuración",
+    "nav.operaciones": "Operaciones",
+    "nav.pesaje": "Pesaje",
+    "nav.flota": "Flota",
+    "nav.facturacion": "Facturación",
+    "nav.combustible": "Combustible",
+    "nav.costos": "Costos",
+    "nav.analytics": "Analytics",
+    "nav.admin": "Administración",
 
     // Dashboard
     "dashboard.title": "Dashboard",
@@ -79,6 +87,14 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "nav.crm": "CRM",
     "nav.reportes": "Reports",
     "nav.configuracion": "Settings",
+    "nav.operaciones": "Operations",
+    "nav.pesaje": "Weighing",
+    "nav.flota": "Fleet",
+    "nav.facturacion": "Invoicing",
+    "nav.combustible": "Fuel",
+    "nav.costos": "Costs",
+    "nav.analytics": "Analytics",
+    "nav.admin": "Admin",
 
     // Dashboard
     "dashboard.title": "Dashboard",

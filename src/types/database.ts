@@ -431,6 +431,67 @@ export interface Database {
         };
         Relationships: [];
       };
+      // ===== TransCaña Tables =====
+      parcelas: {
+        Row: { id: string; codigo: string; nombre: string; ubicacion: string | null; hectareas: number; variedad_cana: string | null; fecha_siembra: string | null; estado: "activa" | "en_corte" | "cosechada" | "en_reposo"; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; ubicacion?: string | null; hectareas: number; variedad_cana?: string | null; fecha_siembra?: string | null; estado?: "activa" | "en_corte" | "cosechada" | "en_reposo"; user_id: string; created_at?: string; };
+        Update: { id?: string; codigo?: string; nombre?: string; ubicacion?: string | null; hectareas?: number; variedad_cana?: string | null; fecha_siembra?: string | null; estado?: "activa" | "en_corte" | "cosechada" | "en_reposo"; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      operaciones_campo: {
+        Row: { id: string; numero: number; tipo: "corte" | "alce" | "transporte"; parcela_id: string | null; fecha: string; turno: "diurno" | "nocturno" | null; cuadrilla: string | null; hectareas_trabajadas: number; toneladas: number; vehiculo_id: string | null; chofer: string | null; origen: string | null; destino: string | null; observaciones: string | null; estado: "programada" | "en_proceso" | "completada" | "cancelada"; user_id: string; created_at: string; };
+        Insert: { id?: string; numero?: number; tipo: "corte" | "alce" | "transporte"; parcela_id?: string | null; fecha?: string; turno?: "diurno" | "nocturno" | null; cuadrilla?: string | null; hectareas_trabajadas?: number; toneladas?: number; vehiculo_id?: string | null; chofer?: string | null; origen?: string | null; destino?: string | null; observaciones?: string | null; estado?: "programada" | "en_proceso" | "completada" | "cancelada"; user_id: string; created_at?: string; };
+        Update: { id?: string; numero?: number; tipo?: "corte" | "alce" | "transporte"; parcela_id?: string | null; fecha?: string; turno?: "diurno" | "nocturno" | null; cuadrilla?: string | null; hectareas_trabajadas?: number; toneladas?: number; vehiculo_id?: string | null; chofer?: string | null; origen?: string | null; destino?: string | null; observaciones?: string | null; estado?: "programada" | "en_proceso" | "completada" | "cancelada"; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      registros_pesaje: {
+        Row: { id: string; numero: number; ticket: string | null; vehiculo_placa: string; chofer: string | null; parcela_id: string | null; tipo: "entrada" | "salida"; peso_bruto: number; tara: number; peso_neto: number; porcentaje_impurezas: number; peso_neto_ajustado: number; bascula: string | null; fecha_hora: string; observaciones: string | null; estado: "pendiente" | "completo" | "anulado"; user_id: string; created_at: string; };
+        Insert: { id?: string; numero?: number; ticket?: string | null; vehiculo_placa: string; chofer?: string | null; parcela_id?: string | null; tipo: "entrada" | "salida"; peso_bruto?: number; tara?: number; peso_neto?: number; porcentaje_impurezas?: number; peso_neto_ajustado?: number; bascula?: string | null; fecha_hora?: string; observaciones?: string | null; estado?: "pendiente" | "completo" | "anulado"; user_id: string; created_at?: string; };
+        Update: { id?: string; numero?: number; ticket?: string | null; vehiculo_placa?: string; chofer?: string | null; parcela_id?: string | null; tipo?: "entrada" | "salida"; peso_bruto?: number; tara?: number; peso_neto?: number; porcentaje_impurezas?: number; peso_neto_ajustado?: number; bascula?: string | null; fecha_hora?: string; observaciones?: string | null; estado?: "pendiente" | "completo" | "anulado"; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      vehiculos: {
+        Row: { id: string; placa: string; tipo: "camion" | "tractor" | "alzadora" | "cosechadora" | "vehiculo_liviano" | "otro"; marca: string | null; modelo: string | null; anio: number | null; capacidad_toneladas: number | null; kilometraje: number; estado: "disponible" | "en_operacion" | "en_mantenimiento" | "fuera_servicio"; chofer_asignado: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; placa: string; tipo: "camion" | "tractor" | "alzadora" | "cosechadora" | "vehiculo_liviano" | "otro"; marca?: string | null; modelo?: string | null; anio?: number | null; capacidad_toneladas?: number | null; kilometraje?: number; estado?: "disponible" | "en_operacion" | "en_mantenimiento" | "fuera_servicio"; chofer_asignado?: string | null; user_id: string; created_at?: string; };
+        Update: { id?: string; placa?: string; tipo?: "camion" | "tractor" | "alzadora" | "cosechadora" | "vehiculo_liviano" | "otro"; marca?: string | null; modelo?: string | null; anio?: number | null; capacidad_toneladas?: number | null; kilometraje?: number; estado?: "disponible" | "en_operacion" | "en_mantenimiento" | "fuera_servicio"; chofer_asignado?: string | null; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      mantenimientos: {
+        Row: { id: string; vehiculo_id: string; tipo: "preventivo" | "correctivo" | "emergencia"; descripcion: string; fecha: string; costo: number; kilometraje: number | null; taller: string | null; estado: "programado" | "en_proceso" | "completado"; user_id: string; created_at: string; };
+        Insert: { id?: string; vehiculo_id: string; tipo: "preventivo" | "correctivo" | "emergencia"; descripcion: string; fecha?: string; costo?: number; kilometraje?: number | null; taller?: string | null; estado?: "programado" | "en_proceso" | "completado"; user_id: string; created_at?: string; };
+        Update: { id?: string; vehiculo_id?: string; tipo?: "preventivo" | "correctivo" | "emergencia"; descripcion?: string; fecha?: string; costo?: number; kilometraje?: number | null; taller?: string | null; estado?: "programado" | "en_proceso" | "completado"; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      despachos_combustible: {
+        Row: { id: string; numero: number; vehiculo_id: string | null; vehiculo_placa: string; tipo_combustible: "diesel" | "gasolina_90" | "gasolina_95" | "glp"; galones: number; precio_galon: number; total: number; kilometraje: number | null; operador: string | null; estacion: string | null; fecha: string; user_id: string; created_at: string; };
+        Insert: { id?: string; numero?: number; vehiculo_id?: string | null; vehiculo_placa: string; tipo_combustible: "diesel" | "gasolina_90" | "gasolina_95" | "glp"; galones: number; precio_galon: number; total: number; kilometraje?: number | null; operador?: string | null; estacion?: string | null; fecha?: string; user_id: string; created_at?: string; };
+        Update: { id?: string; numero?: number; vehiculo_id?: string | null; vehiculo_placa?: string; tipo_combustible?: "diesel" | "gasolina_90" | "gasolina_95" | "glp"; galones?: number; precio_galon?: number; total?: number; kilometraje?: number | null; operador?: string | null; estacion?: string | null; fecha?: string; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      centros_costo: {
+        Row: { id: string; codigo: string; nombre: string; tipo: "operativo" | "administrativo" | "logistico" | null; presupuesto: number; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; tipo?: "operativo" | "administrativo" | "logistico" | null; presupuesto?: number; user_id: string; created_at?: string; };
+        Update: { id?: string; codigo?: string; nombre?: string; tipo?: "operativo" | "administrativo" | "logistico" | null; presupuesto?: number; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      registros_costo: {
+        Row: { id: string; centro_costo_id: string | null; parcela_id: string | null; concepto: string; categoria: "mano_obra" | "combustible" | "mantenimiento" | "insumos" | "transporte" | "otros" | null; monto: number; fecha: string; referencia: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; centro_costo_id?: string | null; parcela_id?: string | null; concepto: string; categoria?: "mano_obra" | "combustible" | "mantenimiento" | "insumos" | "transporte" | "otros" | null; monto: number; fecha?: string; referencia?: string | null; user_id: string; created_at?: string; };
+        Update: { id?: string; centro_costo_id?: string | null; parcela_id?: string | null; concepto?: string; categoria?: "mano_obra" | "combustible" | "mantenimiento" | "insumos" | "transporte" | "otros" | null; monto?: number; fecha?: string; referencia?: string | null; user_id?: string; created_at?: string; };
+        Relationships: [];
+      };
+      roles: {
+        Row: { id: string; nombre: string; descripcion: string | null; permisos: Json; created_at: string; };
+        Insert: { id?: string; nombre: string; descripcion?: string | null; permisos?: Json; created_at?: string; };
+        Update: { id?: string; nombre?: string; descripcion?: string | null; permisos?: Json; created_at?: string; };
+        Relationships: [];
+      };
+      auditoria: {
+        Row: { id: string; user_id: string | null; accion: string; modulo: string; detalle: string | null; ip: string | null; created_at: string; };
+        Insert: { id?: string; user_id?: string | null; accion: string; modulo: string; detalle?: string | null; ip?: string | null; created_at?: string; };
+        Update: { id?: string; user_id?: string | null; accion?: string; modulo?: string; detalle?: string | null; ip?: string | null; created_at?: string; };
+        Relationships: [];
+      };
       leads: {
         Row: {
           id: string;
