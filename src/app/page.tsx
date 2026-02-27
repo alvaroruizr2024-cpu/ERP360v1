@@ -9,9 +9,25 @@ import {
   Users,
   Contact,
   ShoppingCart,
+  Tractor,
+  CalendarDays,
+  FlaskConical,
+  Banknote,
+  Route,
+  UserCheck,
+  Wrench,
+  Activity,
 } from "lucide-react";
 
 const features = [
+  { icon: Tractor, title: "Operaciones", desc: "Corte, alce y transporte de caña" },
+  { icon: CalendarDays, title: "Zafra", desc: "Planificación de campañas de cosecha" },
+  { icon: FlaskConical, title: "Laboratorio", desc: "Análisis Brix, Pol, Fibra y calidad" },
+  { icon: Route, title: "Logística", desc: "Rutas, viajes y seguimiento GPS" },
+  { icon: UserCheck, title: "Colonos", desc: "Portal de colonos y liquidaciones" },
+  { icon: Banknote, title: "Nómina", desc: "Planilla, IGSS, ISR y pagos" },
+  { icon: Wrench, title: "Mant. Industrial", desc: "Equipos, OT y repuestos" },
+  { icon: Activity, title: "Business Intelligence", desc: "KPIs y análisis predictivo" },
   { icon: TrendingUp, title: "Ventas", desc: "Facturación y gestión de clientes" },
   { icon: ShoppingCart, title: "Compras", desc: "Órdenes de compra y proveedores" },
   { icon: Package, title: "Inventario", desc: "Control de stock en tiempo real" },
@@ -19,7 +35,7 @@ const features = [
   { icon: Users, title: "RRHH", desc: "Empleados y departamentos" },
   { icon: Contact, title: "CRM", desc: "Pipeline de leads y seguimiento" },
   { icon: BarChart3, title: "Reportes", desc: "Gráficas y exportación PDF/Excel" },
-  { icon: ShieldCheck, title: "Seguridad", desc: "Autenticación y roles de usuario" },
+  { icon: ShieldCheck, title: "Seguridad", desc: "Auth, CSRF, rate limiting y headers" },
 ];
 
 export default function Home() {
@@ -112,11 +128,11 @@ export default function Home() {
       <section className="py-16 px-6 border-t border-slate-800">
         <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
           <div>
-            <p className="text-3xl font-bold text-blue-400">7+</p>
+            <p className="text-3xl font-bold text-blue-400">24+</p>
             <p className="text-sm text-slate-400 mt-1">Módulos</p>
           </div>
           <div>
-            <p className="text-3xl font-bold text-blue-400">13</p>
+            <p className="text-3xl font-bold text-blue-400">44</p>
             <p className="text-sm text-slate-400 mt-1">Tablas de BD</p>
           </div>
           <div>

@@ -537,6 +537,103 @@ export interface Database {
         };
         Relationships: [];
       };
+      // ===== Sprints 8-14: Advanced Modules =====
+      zafras: {
+        Row: { id: string; codigo: string; nombre: string; fecha_inicio: string; fecha_fin: string | null; meta_toneladas: number; meta_hectareas: number; toneladas_procesadas: number; hectareas_cosechadas: number; rendimiento_promedio: number; estado: "planificada" | "activa" | "pausada" | "completada" | "cancelada"; notas: string | null; user_id: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; fecha_inicio: string; fecha_fin?: string | null; meta_toneladas?: number; meta_hectareas?: number; estado?: "planificada" | "activa" | "pausada" | "completada" | "cancelada"; notas?: string | null; user_id: string; };
+        Update: { nombre?: string; fecha_inicio?: string; fecha_fin?: string | null; meta_toneladas?: number; meta_hectareas?: number; toneladas_procesadas?: number; hectareas_cosechadas?: number; rendimiento_promedio?: number; estado?: "planificada" | "activa" | "pausada" | "completada" | "cancelada"; notas?: string | null; updated_at?: string; };
+        Relationships: [];
+      };
+      metas_zafra: {
+        Row: { id: string; zafra_id: string; parcela_id: string | null; semana: number; meta_toneladas: number; toneladas_real: number; meta_hectareas: number; hectareas_real: number; cumplimiento_porcentaje: number; observaciones: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; zafra_id: string; parcela_id?: string | null; semana: number; meta_toneladas?: number; toneladas_real?: number; meta_hectareas?: number; hectareas_real?: number; cumplimiento_porcentaje?: number; observaciones?: string | null; user_id: string; };
+        Update: { meta_toneladas?: number; toneladas_real?: number; meta_hectareas?: number; hectareas_real?: number; cumplimiento_porcentaje?: number; observaciones?: string | null; };
+        Relationships: [];
+      };
+      rutas_transporte: {
+        Row: { id: string; codigo: string; nombre: string; origen: string; destino: string; distancia_km: number; tiempo_estimado_min: number; tipo: "cana" | "insumos" | "producto_terminado" | "personal"; estado: "activa" | "inactiva" | "en_revision"; puntos_gps: Json; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; origen: string; destino: string; distancia_km?: number; tiempo_estimado_min?: number; tipo?: "cana" | "insumos" | "producto_terminado" | "personal"; estado?: "activa" | "inactiva" | "en_revision"; user_id: string; };
+        Update: { nombre?: string; origen?: string; destino?: string; distancia_km?: number; tiempo_estimado_min?: number; tipo?: "cana" | "insumos" | "producto_terminado" | "personal"; estado?: "activa" | "inactiva" | "en_revision"; };
+        Relationships: [];
+      };
+      viajes: {
+        Row: { id: string; numero: number; ruta_id: string | null; vehiculo_id: string | null; chofer: string | null; fecha_salida: string; fecha_llegada: string | null; toneladas_transportadas: number; kilometraje_inicio: number; kilometraje_fin: number; combustible_consumido: number; parcela_origen_id: string | null; destino_ingenio: string | null; ticket_pesaje: string | null; costo_flete: number; estado: "programado" | "en_transito" | "entregado" | "cancelado"; incidencias: string | null; gps_tracking: Json; user_id: string; created_at: string; };
+        Insert: { id?: string; ruta_id?: string | null; vehiculo_id?: string | null; chofer?: string | null; toneladas_transportadas?: number; kilometraje_inicio?: number; parcela_origen_id?: string | null; destino_ingenio?: string | null; ticket_pesaje?: string | null; costo_flete?: number; estado?: "programado" | "en_transito" | "entregado" | "cancelado"; user_id: string; };
+        Update: { fecha_llegada?: string; kilometraje_fin?: number; combustible_consumido?: number; incidencias?: string | null; estado?: "programado" | "en_transito" | "entregado" | "cancelado"; };
+        Relationships: [];
+      };
+      muestras_laboratorio: {
+        Row: { id: string; numero: number; codigo_muestra: string; tipo_muestra: "cana" | "jugo" | "melaza" | "azucar" | "bagazo" | "agua"; parcela_id: string | null; ticket_pesaje: string | null; fecha_muestreo: string; punto_muestreo: string | null; responsable: string | null; temperatura: number | null; estado: "pendiente" | "en_analisis" | "completado" | "rechazado"; observaciones: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo_muestra: string; tipo_muestra: "cana" | "jugo" | "melaza" | "azucar" | "bagazo" | "agua"; parcela_id?: string | null; ticket_pesaje?: string | null; punto_muestreo?: string | null; responsable?: string | null; temperatura?: number | null; estado?: "pendiente" | "en_analisis" | "completado" | "rechazado"; observaciones?: string | null; user_id: string; };
+        Update: { estado?: "pendiente" | "en_analisis" | "completado" | "rechazado"; observaciones?: string | null; };
+        Relationships: [];
+      };
+      analisis_calidad: {
+        Row: { id: string; muestra_id: string; brix: number; pol: number; pureza: number; fibra: number; humedad: number; cenizas: number; ph: number | null; color_icumsa: number | null; sacarosa: number; azucares_reductores: number; rendimiento_estimado: number; calificacion: "A" | "B" | "C" | "D" | "rechazado"; analista: string | null; equipo_utilizado: string | null; fecha_analisis: string; notas: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; muestra_id: string; brix?: number; pol?: number; pureza?: number; fibra?: number; humedad?: number; cenizas?: number; ph?: number | null; color_icumsa?: number | null; sacarosa?: number; azucares_reductores?: number; rendimiento_estimado?: number; calificacion?: "A" | "B" | "C" | "D" | "rechazado"; analista?: string | null; notas?: string | null; user_id: string; };
+        Update: { brix?: number; pol?: number; pureza?: number; fibra?: number; calificacion?: "A" | "B" | "C" | "D" | "rechazado"; };
+        Relationships: [];
+      };
+      periodos_nomina: {
+        Row: { id: string; codigo: string; nombre: string; tipo: "quincenal" | "mensual" | "semanal" | "liquidacion"; fecha_inicio: string; fecha_fin: string; fecha_pago: string | null; total_bruto: number; total_deducciones: number; total_neto: number; estado: "borrador" | "calculado" | "aprobado" | "pagado" | "anulado"; aprobado_por: string | null; notas: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; tipo: "quincenal" | "mensual" | "semanal" | "liquidacion"; fecha_inicio: string; fecha_fin: string; fecha_pago?: string | null; estado?: "borrador" | "calculado" | "aprobado" | "pagado" | "anulado"; notas?: string | null; user_id: string; };
+        Update: { total_bruto?: number; total_deducciones?: number; total_neto?: number; estado?: "borrador" | "calculado" | "aprobado" | "pagado" | "anulado"; aprobado_por?: string | null; };
+        Relationships: [];
+      };
+      nomina_detalle: {
+        Row: { id: string; periodo_id: string; empleado_id: string; salario_base: number; horas_extra: number; monto_horas_extra: number; bonificaciones: number; comisiones: number; total_ingresos: number; deduccion_igss: number; deduccion_isr: number; otras_deducciones: number; anticipos: number; total_deducciones: number; salario_neto: number; dias_trabajados: number; faltas: number; estado: "pendiente" | "calculado" | "aprobado" | "pagado"; user_id: string; created_at: string; };
+        Insert: { id?: string; periodo_id: string; empleado_id: string; salario_base?: number; estado?: "pendiente" | "calculado" | "aprobado" | "pagado"; user_id: string; };
+        Update: { salario_base?: number; horas_extra?: number; monto_horas_extra?: number; bonificaciones?: number; total_ingresos?: number; deduccion_igss?: number; deduccion_isr?: number; total_deducciones?: number; salario_neto?: number; estado?: "pendiente" | "calculado" | "aprobado" | "pagado"; };
+        Relationships: [];
+      };
+      colonos: {
+        Row: { id: string; codigo: string; nombre: string; dpi: string | null; nit: string | null; telefono: string | null; email: string | null; direccion: string | null; parcelas_asignadas: Json; tipo_contrato: "individual" | "cooperativa" | "asociacion" | "arrendamiento"; precio_tonelada: number; cuenta_bancaria: string | null; banco: string | null; estado: "activo" | "inactivo" | "suspendido"; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; dpi?: string | null; nit?: string | null; telefono?: string | null; email?: string | null; direccion?: string | null; tipo_contrato?: "individual" | "cooperativa" | "asociacion" | "arrendamiento"; precio_tonelada?: number; cuenta_bancaria?: string | null; banco?: string | null; user_id: string; };
+        Update: { nombre?: string; telefono?: string | null; email?: string | null; tipo_contrato?: "individual" | "cooperativa" | "asociacion" | "arrendamiento"; precio_tonelada?: number; estado?: "activo" | "inactivo" | "suspendido"; };
+        Relationships: [];
+      };
+      entregas_colono: {
+        Row: { id: string; numero: number; colono_id: string; parcela_id: string | null; zafra_id: string | null; fecha_entrega: string; toneladas_brutas: number; porcentaje_impurezas: number; toneladas_netas: number; precio_tonelada: number; monto_bruto: number; deducciones: number; concepto_deducciones: string | null; monto_neto: number; ticket_pesaje: string | null; calificacion_calidad: "A" | "B" | "C" | "D"; estado: "pendiente" | "verificado" | "liquidado" | "pagado" | "rechazado"; user_id: string; created_at: string; };
+        Insert: { id?: string; colono_id: string; parcela_id?: string | null; zafra_id?: string | null; toneladas_brutas?: number; porcentaje_impurezas?: number; toneladas_netas?: number; precio_tonelada?: number; monto_bruto?: number; deducciones?: number; monto_neto?: number; ticket_pesaje?: string | null; calificacion_calidad?: "A" | "B" | "C" | "D"; user_id: string; };
+        Update: { estado?: "pendiente" | "verificado" | "liquidado" | "pagado" | "rechazado"; };
+        Relationships: [];
+      };
+      kpi_snapshots: {
+        Row: { id: string; fecha: string; modulo: string; indicador: string; valor: number; valor_anterior: number | null; variacion_porcentaje: number | null; meta: number | null; unidad: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; fecha?: string; modulo: string; indicador: string; valor: number; valor_anterior?: number | null; meta?: number | null; unidad?: string | null; user_id: string; };
+        Update: { valor?: number; valor_anterior?: number | null; variacion_porcentaje?: number | null; };
+        Relationships: [];
+      };
+      alertas_sistema: {
+        Row: { id: string; tipo: "critica" | "advertencia" | "info" | "exito"; modulo: string; titulo: string; mensaje: string; datos: Json; leida: boolean; user_id: string; created_at: string; };
+        Insert: { id?: string; tipo: "critica" | "advertencia" | "info" | "exito"; modulo: string; titulo: string; mensaje: string; datos?: Json; user_id: string; };
+        Update: { leida?: boolean; };
+        Relationships: [];
+      };
+      equipos_industriales: {
+        Row: { id: string; codigo: string; nombre: string; tipo: "molino" | "caldera" | "centrifuga" | "evaporador" | "cristalizador" | "filtro" | "bomba" | "motor" | "transportador" | "otro"; area: "patio" | "molinos" | "calderas" | "clarificacion" | "evaporacion" | "cristalizacion" | "centrifugado" | "secado" | "empaque" | "laboratorio" | null; marca: string | null; modelo: string | null; numero_serie: string | null; fecha_instalacion: string | null; potencia: string | null; capacidad: string | null; horas_operacion: number; estado: "operativo" | "en_mantenimiento" | "fuera_servicio" | "en_reserva" | "dado_baja"; criticidad: "critica" | "alta" | "media" | "baja"; ultimo_mantenimiento: string | null; proximo_mantenimiento: string | null; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; tipo: "molino" | "caldera" | "centrifuga" | "evaporador" | "cristalizador" | "filtro" | "bomba" | "motor" | "transportador" | "otro"; area?: string | null; marca?: string | null; modelo?: string | null; criticidad?: "critica" | "alta" | "media" | "baja"; user_id: string; };
+        Update: { nombre?: string; estado?: "operativo" | "en_mantenimiento" | "fuera_servicio" | "en_reserva" | "dado_baja"; horas_operacion?: number; ultimo_mantenimiento?: string | null; proximo_mantenimiento?: string | null; };
+        Relationships: [];
+      };
+      ordenes_trabajo: {
+        Row: { id: string; numero: number; equipo_id: string; tipo: "preventivo" | "correctivo" | "predictivo" | "emergencia" | "mejora"; prioridad: "critica" | "alta" | "media" | "baja"; titulo: string; descripcion: string | null; solicitante: string | null; tecnico_asignado: string | null; fecha_solicitud: string; fecha_programada: string | null; fecha_inicio: string | null; fecha_fin: string | null; horas_trabajo: number; costo_mano_obra: number; costo_repuestos: number; costo_total: number; causa_raiz: string | null; solucion: string | null; estado: "abierta" | "asignada" | "en_progreso" | "en_espera" | "completada" | "cerrada" | "cancelada"; user_id: string; created_at: string; };
+        Insert: { id?: string; equipo_id: string; tipo: "preventivo" | "correctivo" | "predictivo" | "emergencia" | "mejora"; prioridad?: "critica" | "alta" | "media" | "baja"; titulo: string; descripcion?: string | null; solicitante?: string | null; tecnico_asignado?: string | null; user_id: string; };
+        Update: { estado?: "abierta" | "asignada" | "en_progreso" | "en_espera" | "completada" | "cerrada" | "cancelada"; horas_trabajo?: number; costo_mano_obra?: number; costo_repuestos?: number; costo_total?: number; causa_raiz?: string | null; solucion?: string | null; fecha_fin?: string; };
+        Relationships: [];
+      };
+      repuestos: {
+        Row: { id: string; codigo: string; nombre: string; descripcion: string | null; categoria: "mecanico" | "electrico" | "hidraulico" | "neumatico" | "instrumentacion" | "general" | null; unidad_medida: string; stock_actual: number; stock_minimo: number; precio_unitario: number; proveedor: string | null; ubicacion_almacen: string | null; equipo_compatible: Json; estado: "disponible" | "agotado" | "descontinuado"; user_id: string; created_at: string; };
+        Insert: { id?: string; codigo: string; nombre: string; descripcion?: string | null; categoria?: string | null; stock_actual?: number; stock_minimo?: number; precio_unitario?: number; proveedor?: string | null; ubicacion_almacen?: string | null; user_id: string; };
+        Update: { nombre?: string; stock_actual?: number; stock_minimo?: number; precio_unitario?: number; estado?: "disponible" | "agotado" | "descontinuado"; };
+        Relationships: [];
+      };
+      consumo_repuestos: {
+        Row: { id: string; orden_trabajo_id: string; repuesto_id: string; cantidad: number; precio_unitario: number; total: number; user_id: string; created_at: string; };
+        Insert: { id?: string; orden_trabajo_id: string; repuesto_id: string; cantidad: number; precio_unitario: number; total: number; user_id: string; };
+        Update: { cantidad?: number; precio_unitario?: number; total?: number; };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -578,3 +675,21 @@ export type Departamento = Database["public"]["Tables"]["departamentos"]["Row"];
 export type Empleado = Database["public"]["Tables"]["empleados"]["Row"];
 
 export type Lead = Database["public"]["Tables"]["leads"]["Row"];
+
+// Sprints 8-14 types
+export type Zafra = Database["public"]["Tables"]["zafras"]["Row"];
+export type MetaZafra = Database["public"]["Tables"]["metas_zafra"]["Row"];
+export type RutaTransporte = Database["public"]["Tables"]["rutas_transporte"]["Row"];
+export type Viaje = Database["public"]["Tables"]["viajes"]["Row"];
+export type MuestraLaboratorio = Database["public"]["Tables"]["muestras_laboratorio"]["Row"];
+export type AnalisisCalidad = Database["public"]["Tables"]["analisis_calidad"]["Row"];
+export type PeriodoNomina = Database["public"]["Tables"]["periodos_nomina"]["Row"];
+export type NominaDetalle = Database["public"]["Tables"]["nomina_detalle"]["Row"];
+export type Colono = Database["public"]["Tables"]["colonos"]["Row"];
+export type EntregaColono = Database["public"]["Tables"]["entregas_colono"]["Row"];
+export type KpiSnapshot = Database["public"]["Tables"]["kpi_snapshots"]["Row"];
+export type AlertaSistema = Database["public"]["Tables"]["alertas_sistema"]["Row"];
+export type EquipoIndustrial = Database["public"]["Tables"]["equipos_industriales"]["Row"];
+export type OrdenTrabajo = Database["public"]["Tables"]["ordenes_trabajo"]["Row"];
+export type Repuesto = Database["public"]["Tables"]["repuestos"]["Row"];
+export type ConsumoRepuesto = Database["public"]["Tables"]["consumo_repuestos"]["Row"];

@@ -8,6 +8,10 @@ import {
   TrendingUp,
   AlertTriangle,
   Contact,
+  Tractor,
+  FlaskConical,
+  UserCheck,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
@@ -28,6 +32,13 @@ export default async function DashboardPage() {
     leadsRes,
     productosAllRes,
     facturasAllRes,
+    // TransCaña KPIs
+    zafrasRes,
+    viajesRes,
+    muestrasRes,
+    colonosRes,
+    ordenesTrabajoRes,
+    equiposRes,
   ] = await Promise.all([
     supabase.from("productos").select("id", { count: "exact", head: true }),
     supabase.from("clientes").select("id", { count: "exact", head: true }),
@@ -37,6 +48,13 @@ export default async function DashboardPage() {
     supabase.from("leads").select("etapa, valor_estimado"),
     supabase.from("productos").select("nombre, stock, stock_minimo, precio, categoria").eq("estado", "activo"),
     supabase.from("facturas").select("numero, total, fecha, estado").order("created_at", { ascending: false }).limit(5),
+    // TransCaña queries
+    supabase.from("zafras").select("id, estado", { count: "exact" }).eq("estado", "activa"),
+    supabase.from("viajes").select("id, estado, toneladas_netas", { count: "exact" }),
+    supabase.from("muestras_laboratorio").select("id", { count: "exact", head: true }),
+    supabase.from("colonos").select("id", { count: "exact", head: true }),
+    supabase.from("ordenes_trabajo").select("id, estado", { count: "exact" }).eq("estado", "pendiente"),
+    supabase.from("equipos_industriales").select("id, estado", { count: "exact" }),
   ]);
 
   const totalProductos = productosRes.count ?? 0;
@@ -47,6 +65,18 @@ export default async function DashboardPage() {
   const leads = leadsRes.data ?? [];
   const productos = productosAllRes.data ?? [];
   const recentFacturas = facturasAllRes.data ?? [];
+
+  // TransCaña KPI values
+  const zafrasActivas = zafrasRes.count ?? 0;
+  const viajes = viajesRes.data ?? [];
+  const totalViajes = viajesRes.count ?? 0;
+  const toneladasTransportadas = viajes.reduce((sum, v) => sum + Number(v.toneladas_netas || 0), 0);
+  const totalMuestras = muestrasRes.count ?? 0;
+  const totalColonos = colonosRes.count ?? 0;
+  const otPendientes = ordenesTrabajoRes.count ?? 0;
+  const equipos = equiposRes.data ?? [];
+  const equiposOperativos = equipos.filter((e) => e.estado === "operativo").length;
+  const totalEquipos = equiposRes.count ?? 0;
 
   const totalVentas = facturas.reduce((sum, f) => sum + Number(f.total), 0);
   const totalCompras = ordenes.reduce((sum, o) => sum + Number(o.total), 0);
@@ -101,6 +131,23 @@ export default async function DashboardPage() {
         <DashboardCard title="Productos" value={String(totalProductos)} description="En catálogo" icon={Package} color="text-cyan-400" />
         <DashboardCard title="Clientes" value={String(totalClientes)} description="Registrados" icon={Users} color="text-yellow-400" />
         <DashboardCard title="Stock Bajo" value={String(stockBajo)} description={`${totalEmpleados} empleados`} icon={AlertTriangle} color={stockBajo > 0 ? "text-orange-400" : "text-slate-500"} />
+      </div>
+
+      {/* KPI Cards - Row 3: TransCaña */}
+      <div>
+        <h2 className="text-lg font-semibold text-slate-300 mb-3">TransCaña</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <DashboardCard title="Zafras Activas" value={String(zafrasActivas)} description={`${totalViajes} viajes registrados`} icon={Tractor} color="text-green-400" />
+          <DashboardCard title="Toneladas" value={toneladasTransportadas.toLocaleString("es-MX")} description="Transportadas" icon={TrendingUp} color="text-amber-400" />
+          <DashboardCard title="Muestras Lab" value={String(totalMuestras)} description="Análisis realizados" icon={FlaskConical} color="text-violet-400" />
+          <DashboardCard title="Colonos" value={String(totalColonos)} description="Registrados" icon={UserCheck} color="text-teal-400" />
+        </div>
+      </div>
+
+      {/* KPI Cards - Row 4: Mantenimiento */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <DashboardCard title="OT Pendientes" value={String(otPendientes)} description="Órdenes de trabajo" icon={Wrench} color={otPendientes > 5 ? "text-orange-400" : "text-blue-400"} />
+        <DashboardCard title="Equipos" value={`${equiposOperativos}/${totalEquipos}`} description="Operativos" icon={Package} color={equiposOperativos < totalEquipos ? "text-yellow-400" : "text-green-400"} />
       </div>
 
       {/* Charts */}
