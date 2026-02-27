@@ -27,6 +27,7 @@ import {
   UserCheck,
   Activity,
   Wrench,
+  ExternalLink,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n/provider";
@@ -150,6 +151,18 @@ export function Sidebar() {
           <Settings className="w-4 h-4" />
           {t("nav.configuracion")}
         </Link>
+      </div>
+
+      <div className="px-3 pb-2">
+        <a
+          href="/erpremium/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-colors text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-300"
+        >
+          <ExternalLink className="w-4 h-4" />
+          ERPremium Demo
+        </a>
       </div>
 
       <div className="p-4 border-t border-slate-700">
