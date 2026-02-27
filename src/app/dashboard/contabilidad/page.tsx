@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { ContabilidadCharts } from "@/components/contabilidad/contabilidad-charts";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Calculator } from "lucide-react";
 
 export default async function ContabilidadPage() {
   const supabase = createClient();
@@ -16,14 +18,44 @@ export default async function ContabilidadPage() {
   const cuentas = cuentasRes.data ?? [];
   const asientos = asientosRes.data ?? [];
 
+  // Calculate financial totals by type
+  const tipoTotals: Record<string, number> = {};
+  for (const tipo of ["activo", "pasivo", "capital", "ingreso", "gasto"]) {
+    tipoTotals[tipo] = cuentas.filter((c) => c.tipo === tipo).reduce((s, c) => s + Number(c.saldo), 0);
+  }
+
+  // Chart data
+  const balanceByType = Object.entries(tipoTotals).map(([name, saldo]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    saldo: Math.abs(saldo),
+  }));
+  const ecuacionContable = {
+    activos: tipoTotals.activo,
+    pasivos: tipoTotals.pasivo,
+    capital: tipoTotals.capital,
+  };
+
+  // Income statement data
+  const utilidadBruta = tipoTotals.ingreso - tipoTotals.gasto;
+
+  // Export data
+  const exportHeaders = ["No.", "Fecha", "Descripción"];
+  const exportRows = asientos.map((a) => [
+    `#${a.numero}`, new Date(a.fecha).toLocaleDateString("es-MX"), a.descripcion,
+  ]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Contabilidad</h1>
-          <p className="text-slate-400 mt-1">Plan de cuentas y libro diario</p>
+        <div className="flex items-center gap-3">
+          <Calculator className="w-7 h-7 text-blue-400" />
+          <div>
+            <h1 className="text-2xl font-bold text-white">Contabilidad</h1>
+            <p className="text-slate-400 mt-1">Plan de cuentas, libro diario y estados financieros</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <ExportButtons title="Libro Diario" headers={exportHeaders} rows={exportRows} filename="contabilidad" />
           <Link
             href="/dashboard/contabilidad/cuentas"
             className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-600 transition-colors"
@@ -56,6 +88,45 @@ export default async function ContabilidadPage() {
           );
         })}
       </div>
+
+      {/* Financial Statements Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-white mb-3">Balance General</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-400">Total Activos</span><span className="text-blue-400 font-medium">Q{tipoTotals.activo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Total Pasivos</span><span className="text-red-400 font-medium">Q{tipoTotals.pasivo.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Capital</span><span className="text-purple-400 font-medium">Q{tipoTotals.capital.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+            <hr className="border-slate-700" />
+            <div className="flex justify-between font-medium"><span className="text-slate-300">Patrimonio Neto</span><span className="text-white">Q{(tipoTotals.activo - tipoTotals.pasivo).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-white mb-3">Estado de Resultados</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-400">Ingresos</span><span className="text-green-400 font-medium">Q{tipoTotals.ingreso.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Gastos</span><span className="text-orange-400 font-medium">Q{tipoTotals.gasto.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
+            <hr className="border-slate-700" />
+            <div className="flex justify-between font-medium">
+              <span className="text-slate-300">Utilidad</span>
+              <span className={utilidadBruta >= 0 ? "text-green-400" : "text-red-400"}>Q{utilidadBruta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+          <h3 className="text-sm font-semibold text-white mb-3">Indicadores</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-slate-400">Cuentas</span><span className="text-white font-medium">{cuentas.length}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Asientos</span><span className="text-white font-medium">{asientos.length}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Ratio Deuda</span><span className="text-white font-medium">{tipoTotals.activo > 0 ? (tipoTotals.pasivo / tipoTotals.activo * 100).toFixed(1) : 0}%</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Margen</span><span className={`font-medium ${utilidadBruta >= 0 ? "text-green-400" : "text-red-400"}`}>{tipoTotals.ingreso > 0 ? (utilidadBruta / tipoTotals.ingreso * 100).toFixed(1) : 0}%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <ContabilidadCharts balanceByType={balanceByType} ecuacionContable={ecuacionContable} />
 
       {/* Recent journal entries */}
       <div>

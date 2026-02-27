@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Pagination } from "@/components/ui/pagination";
 import { AdvancedFilters } from "@/components/ui/advanced-filters";
+import { PesajeCharts } from "@/components/pesaje/pesaje-charts";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
 import { Plus, Scale } from "lucide-react";
 
@@ -36,11 +38,29 @@ export default async function PesajePage({
     .range(from, to);
 
   // KPIs
-  const { data: allPesajes } = await supabase.from("registros_pesaje").select("peso_neto, peso_neto_ajustado, estado");
+  const { data: allPesajes } = await supabase.from("registros_pesaje").select("peso_neto, peso_neto_ajustado, estado, tipo");
   const pesajes = allPesajes ?? [];
   const totalPesoNeto = pesajes.reduce((s, p) => s + Number(p.peso_neto), 0);
   const totalAjustado = pesajes.reduce((s, p) => s + Number(p.peso_neto_ajustado), 0);
   const pendientes = pesajes.filter((p) => p.estado === "pendiente").length;
+  const impurezaPromedio = totalPesoNeto > 0 ? ((totalPesoNeto - totalAjustado) / totalPesoNeto * 100) : 0;
+
+  // Chart data
+  const byTipo = ["entrada", "salida"].map((t) => {
+    const filtered = pesajes.filter((p) => p.tipo === t);
+    return { name: t.charAt(0).toUpperCase() + t.slice(1), peso_neto: filtered.reduce((s, p) => s + Number(p.peso_neto), 0), count: filtered.length };
+  });
+  const byEstado = ["pendiente", "completo", "anulado"].map((e) => ({
+    name: e.charAt(0).toUpperCase() + e.slice(1), count: pesajes.filter((p) => p.estado === e).length,
+  }));
+
+  // Export data
+  const exportHeaders = ["Ticket", "Placa", "Chofer", "Tipo", "Peso Bruto", "Tara", "Peso Neto", "Fecha", "Estado"];
+  const exportRows = (registros ?? []).map((r) => [
+    r.ticket ?? `#${r.numero}`, r.vehiculo_placa, r.chofer ?? "-", r.tipo,
+    Number(r.peso_bruto).toFixed(2), Number(r.tara).toFixed(2), Number(r.peso_neto).toFixed(2),
+    new Date(r.fecha_hora).toLocaleString("es-MX"), r.estado,
+  ]);
 
   const filterConfig = [
     {
@@ -74,17 +94,20 @@ export default async function PesajePage({
             <p className="text-slate-400 mt-1">Registros de báscula: entrada, salida, tara y peso neto</p>
           </div>
         </div>
-        <Link
-          href="/dashboard/pesaje/nuevo"
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Pesaje
-        </Link>
+        <div className="flex gap-2 items-center">
+          <ExportButtons title="Control de Pesaje" headers={exportHeaders} rows={exportRows} filename="pesaje" />
+          <Link
+            href="/dashboard/pesaje/nuevo"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo Pesaje
+          </Link>
+        </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase">Total Registros</p>
           <p className="text-2xl font-bold text-white mt-1">{count ?? 0}</p>
@@ -101,7 +124,13 @@ export default async function PesajePage({
           <p className="text-xs text-slate-500 uppercase">Pendientes</p>
           <p className="text-2xl font-bold text-yellow-400 mt-1">{pendientes}</p>
         </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <p className="text-xs text-slate-500 uppercase">% Impurezas Prom.</p>
+          <p className="text-2xl font-bold text-red-400 mt-1">{impurezaPromedio.toFixed(2)}%</p>
+        </div>
       </div>
+
+      <PesajeCharts byTipo={byTipo} byEstado={byEstado} />
 
       <AdvancedFilters filters={filterConfig} />
 

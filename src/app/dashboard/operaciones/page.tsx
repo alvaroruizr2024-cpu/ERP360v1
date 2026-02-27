@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Pagination } from "@/components/ui/pagination";
 import { AdvancedFilters } from "@/components/ui/advanced-filters";
+import { OperacionesCharts } from "@/components/operaciones/operaciones-charts";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
 import { Plus, Tractor } from "lucide-react";
 
@@ -50,6 +52,28 @@ export default async function OperacionesPage({
   const totalToneladas = ops.reduce((s, o) => s + Number(o.toneladas), 0);
   const totalHectareas = ops.reduce((s, o) => s + Number(o.hectareas_trabajadas), 0);
   const enProceso = ops.filter((o) => o.estado === "en_proceso").length;
+  const rendimiento = totalHectareas > 0 ? totalToneladas / totalHectareas : 0;
+
+  // Chart data
+  const byType = ["corte", "alce", "transporte"].map((t) => {
+    const filtered = ops.filter((o) => o.tipo === t);
+    return {
+      name: t.charAt(0).toUpperCase() + t.slice(1),
+      toneladas: filtered.reduce((s, o) => s + Number(o.toneladas), 0),
+      hectareas: filtered.reduce((s, o) => s + Number(o.hectareas_trabajadas), 0),
+    };
+  });
+  const byEstado = ["programada", "en_proceso", "completada", "cancelada"].map((e) => ({
+    name: e.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    count: ops.filter((o) => o.estado === e).length,
+  }));
+
+  // Export data
+  const exportHeaders = ["No.", "Tipo", "Parcela", "Fecha", "Turno", "Toneladas", "Hectáreas", "Estado"];
+  const exportRows = (operaciones ?? []).map((op) => {
+    const parcela = (op as Record<string, unknown>).parcelas as { nombre: string } | null;
+    return [op.numero, op.tipo, parcela?.nombre ?? "-", new Date(op.fecha).toLocaleDateString("es-MX"), op.turno ?? "-", Number(op.toneladas).toFixed(1), Number(op.hectareas_trabajadas).toFixed(1), op.estado];
+  });
 
   const filterConfig = [
     {
@@ -94,7 +118,8 @@ export default async function OperacionesPage({
             <p className="text-slate-400 mt-1">Gestión de corte, alce y transporte de caña</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <ExportButtons title="Operaciones de Campo" headers={exportHeaders} rows={exportRows} filename="operaciones_campo" />
           <Link
             href="/dashboard/operaciones/parcelas"
             className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-slate-600 transition-colors"
@@ -112,7 +137,7 @@ export default async function OperacionesPage({
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase">Total Operaciones</p>
           <p className="text-2xl font-bold text-white mt-1">{count ?? 0}</p>
@@ -129,7 +154,13 @@ export default async function OperacionesPage({
           <p className="text-xs text-slate-500 uppercase">En Proceso</p>
           <p className="text-2xl font-bold text-yellow-400 mt-1">{enProceso}</p>
         </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <p className="text-xs text-slate-500 uppercase">Rendimiento (tn/ha)</p>
+          <p className="text-2xl font-bold text-purple-400 mt-1">{rendimiento.toFixed(2)}</p>
+        </div>
       </div>
+
+      <OperacionesCharts byType={byType} byEstado={byEstado} />
 
       <AdvancedFilters filters={filterConfig} />
 

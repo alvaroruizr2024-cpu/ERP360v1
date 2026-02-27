@@ -44,8 +44,19 @@ export async function calcularNomina(periodoId: string) {
 
   const detalles = empleados.map((emp) => {
     const salarioBase = Number(emp.salario) || 0;
+    // IGSS laboral: 4.83% del salario bruto
     const igss = salarioBase * 0.0483;
-    const isr = salarioBase > 5000 ? (salarioBase - 5000) * 0.05 : 0;
+    // ISR Guatemala: Renta anual - exención Q48,000
+    // Q0-Q300,000: 5% | Q300,001+: 7%
+    const salarioAnual = salarioBase * 12;
+    const rentaImponible = Math.max(0, salarioAnual - 48000);
+    let isrAnual = 0;
+    if (rentaImponible <= 300000) {
+      isrAnual = rentaImponible * 0.05;
+    } else {
+      isrAnual = 300000 * 0.05 + (rentaImponible - 300000) * 0.07;
+    }
+    const isr = isrAnual / 12; // Monthly ISR
     const totalDedEmp = igss + isr;
     const neto = salarioBase - totalDedEmp;
 

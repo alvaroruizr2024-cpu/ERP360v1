@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
 import { ArrowLeft, Banknote } from "lucide-react";
 
@@ -59,8 +60,46 @@ export default async function NominaDetallePage({ params }: { params: { id: stri
         {periodo.aprobado_por && <div><span className="text-slate-500">Aprobado por:</span> <span className="text-white ml-1">{periodo.aprobado_por}</span></div>}
       </div>
 
+      {/* IGSS/ISR Summary */}
+      {(detalles ?? []).length > 0 && (
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-white mb-3">Resumen de Deducciones</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-slate-500 text-xs uppercase">Total IGSS (4.83%)</p>
+              <p className="text-red-400 font-medium">Q{(detalles ?? []).reduce((s, d) => s + Number(d.deduccion_igss), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs uppercase">Total ISR</p>
+              <p className="text-red-400 font-medium">Q{(detalles ?? []).reduce((s, d) => s + Number(d.deduccion_isr), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs uppercase">Otras Deducciones</p>
+              <p className="text-red-400 font-medium">Q{(detalles ?? []).reduce((s, d) => s + Number(d.otras_deducciones), 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs uppercase">Salario Neto Prom.</p>
+              <p className="text-white font-medium">Q{((detalles ?? []).reduce((s, d) => s + Number(d.salario_neto), 0) / Math.max(1, (detalles ?? []).length)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Detalle por Empleado</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-white">Detalle por Empleado</h2>
+          {(detalles ?? []).length > 0 && (
+            <ExportButtons
+              title={`Nómina - ${periodo.nombre}`}
+              headers={["Empleado", "Cargo", "Salario Base", "IGSS", "ISR", "Total Ded.", "Neto", "Estado"]}
+              rows={(detalles ?? []).map((d) => {
+                const emp = (d as Record<string, unknown>).empleados as { nombre: string; cargo: string } | null;
+                return [emp?.nombre ?? "-", emp?.cargo ?? "-", `Q${Number(d.salario_base).toFixed(2)}`, `Q${Number(d.deduccion_igss).toFixed(2)}`, `Q${Number(d.deduccion_isr).toFixed(2)}`, `Q${Number(d.total_deducciones).toFixed(2)}`, `Q${Number(d.salario_neto).toFixed(2)}`, d.estado];
+              })}
+              filename={`nomina_${periodo.codigo}`}
+            />
+          )}
+        </div>
         <div className="overflow-x-auto rounded-xl border border-slate-700">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-800 text-slate-400 uppercase text-xs">

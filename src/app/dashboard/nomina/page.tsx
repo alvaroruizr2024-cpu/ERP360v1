@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Pagination } from "@/components/ui/pagination";
 import { AdvancedFilters } from "@/components/ui/advanced-filters";
+import { NominaCharts } from "@/components/nomina/nomina-charts";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
 import { Plus, Banknote } from "lucide-react";
 
@@ -41,6 +43,44 @@ export default async function NominaPage({
   const totalBruto = all.reduce((s, p) => s + Number(p.total_bruto), 0);
   const totalNeto = all.reduce((s, p) => s + Number(p.total_neto), 0);
   const pagados = all.filter((p) => p.estado === "pagado").length;
+  const totalDeducciones = totalBruto - totalNeto;
+  const tasaDeduccion = totalBruto > 0 ? (totalDeducciones / totalBruto * 100) : 0;
+
+  // Chart data - Deducciones breakdown (estimated IGSS 4.83%, ISR varies)
+  const estIGSS = totalBruto * 0.0483;
+  const estISR = totalDeducciones - estIGSS > 0 ? totalDeducciones - estIGSS : 0;
+  const deduccionesBreakdown = [
+    { name: "IGSS (4.83%)", monto: estIGSS },
+    { name: "ISR", monto: estISR },
+  ];
+
+  // Salary distribution
+  const salarioDistribution = [
+    { rango: "< Q3,000", count: 0 },
+    { rango: "Q3,000-5,000", count: 0 },
+    { rango: "Q5,000-10,000", count: 0 },
+    { rango: "Q10,000-20,000", count: 0 },
+    { rango: "> Q20,000", count: 0 },
+  ];
+  all.forEach((p) => {
+    const emp = (p.total_bruto || 0) / Math.max(1, 1); // per period aggregate
+    if (emp < 3000) salarioDistribution[0].count++;
+    else if (emp < 5000) salarioDistribution[1].count++;
+    else if (emp < 10000) salarioDistribution[2].count++;
+    else if (emp < 20000) salarioDistribution[3].count++;
+    else salarioDistribution[4].count++;
+  });
+
+  // Export data
+  const exportHeaders = ["Código", "Nombre", "Tipo", "Período", "Bruto", "Deducciones", "Neto", "Estado"];
+  const exportRows = (periodos ?? []).map((p) => [
+    p.codigo, p.nombre, tipoLabels[p.tipo] ?? p.tipo,
+    `${new Date(p.fecha_inicio).toLocaleDateString("es-MX")} - ${new Date(p.fecha_fin).toLocaleDateString("es-MX")}`,
+    `Q${Number(p.total_bruto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+    `Q${Number(p.total_deducciones).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+    `Q${Number(p.total_neto).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`,
+    p.estado,
+  ]);
 
   const filterConfig = [
     {
@@ -73,13 +113,16 @@ export default async function NominaPage({
             <p className="text-slate-400 mt-1">Gestión de planilla, deducciones y pagos</p>
           </div>
         </div>
-        <Link href="/dashboard/nomina/nuevo-periodo" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors">
-          <Plus className="w-4 h-4" />
-          Nuevo Período
-        </Link>
+        <div className="flex gap-2 items-center">
+          <ExportButtons title="Nómina y Liquidación" headers={exportHeaders} rows={exportRows} filename="nomina" />
+          <Link href="/dashboard/nomina/nuevo-periodo" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors">
+            <Plus className="w-4 h-4" />
+            Nuevo Período
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase">Períodos</p>
           <p className="text-2xl font-bold text-white mt-1">{count ?? 0}</p>
@@ -96,7 +139,32 @@ export default async function NominaPage({
           <p className="text-xs text-slate-500 uppercase">Pagados</p>
           <p className="text-2xl font-bold text-emerald-400 mt-1">{pagados}</p>
         </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <p className="text-xs text-slate-500 uppercase">Tasa Ded. Prom.</p>
+          <p className="text-2xl font-bold text-red-400 mt-1">{tasaDeduccion.toFixed(1)}%</p>
+        </div>
       </div>
+
+      {/* IGSS/ISR Reference Card */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-white mb-3">Referencia Deducciones Guatemala</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-slate-400 font-medium mb-1">IGSS Laboral: 4.83%</p>
+            <p className="text-slate-500 text-xs">Cuota trabajador sobre salario bruto</p>
+          </div>
+          <div>
+            <p className="text-slate-400 font-medium mb-1">ISR Progresivo</p>
+            <div className="text-slate-500 text-xs space-y-0.5">
+              <p>Q0 - Q300,000 anual: 5%</p>
+              <p>Q300,001+ anual: 7%</p>
+              <p>Exento anual: Q48,000 (Q4,000/mes)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <NominaCharts deduccionesBreakdown={deduccionesBreakdown} salarioDistribution={salarioDistribution} />
 
       <AdvancedFilters filters={filterConfig} />
 

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Pagination } from "@/components/ui/pagination";
 import { AdvancedFilters } from "@/components/ui/advanced-filters";
+import { CombustibleCharts } from "@/components/combustible/combustible-charts";
+import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
 import { Plus, Fuel } from "lucide-react";
 
@@ -40,6 +42,33 @@ export default async function CombustiblePage({
   const totalGalones = d.reduce((s, x) => s + Number(x.galones), 0);
   const totalGasto = d.reduce((s, x) => s + Number(x.total), 0);
   const galonesDiesel = d.filter((x) => x.tipo_combustible === "diesel").reduce((s, x) => s + Number(x.galones), 0);
+  const precioPromedio = totalGalones > 0 ? totalGasto / totalGalones : 0;
+
+  // Chart data
+  const byTipo = Object.entries(tipoCombLabels).map(([key, label]) => {
+    const filtered = d.filter((x) => x.tipo_combustible === key);
+    return { name: label, galones: filtered.reduce((s, x) => s + Number(x.galones), 0), gasto: filtered.reduce((s, x) => s + Number(x.total), 0) };
+  });
+
+  // Top vehicles by consumption
+  const vehicleMap = new Map<string, number>();
+  (despachos ?? []).forEach((dp) => {
+    const placa = dp.vehiculo_placa;
+    vehicleMap.set(placa, (vehicleMap.get(placa) || 0) + Number(dp.galones));
+  });
+  const topVehicles = Array.from(vehicleMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, galones]) => ({ name, galones }));
+
+  // Export data
+  const exportHeaders = ["No.", "Placa", "Tipo", "Galones", "Precio/Gal", "Total", "Km", "Operador", "Fecha"];
+  const exportRows = (despachos ?? []).map((dp) => [
+    dp.numero, dp.vehiculo_placa, tipoCombLabels[dp.tipo_combustible] ?? dp.tipo_combustible,
+    Number(dp.galones).toFixed(2), `$${Number(dp.precio_galon).toFixed(2)}`, `$${Number(dp.total).toFixed(2)}`,
+    dp.kilometraje ? Number(dp.kilometraje).toLocaleString("es-MX") : "-", dp.operador ?? "-",
+    new Date(dp.fecha).toLocaleDateString("es-MX"),
+  ]);
 
   const filterConfig = [
     {
@@ -60,17 +89,20 @@ export default async function CombustiblePage({
             <p className="text-slate-400 mt-1">Despachos y consumo por vehículo</p>
           </div>
         </div>
-        <Link
-          href="/dashboard/combustible/nuevo"
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Despacho
-        </Link>
+        <div className="flex gap-2 items-center">
+          <ExportButtons title="Control de Combustible" headers={exportHeaders} rows={exportRows} filename="combustible" />
+          <Link
+            href="/dashboard/combustible/nuevo"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo Despacho
+          </Link>
+        </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
           <p className="text-xs text-slate-500 uppercase">Despachos</p>
           <p className="text-2xl font-bold text-white mt-1">{count ?? 0}</p>
@@ -87,7 +119,13 @@ export default async function CombustiblePage({
           <p className="text-xs text-slate-500 uppercase">Diésel (gal)</p>
           <p className="text-2xl font-bold text-yellow-400 mt-1">{galonesDiesel.toLocaleString("es-MX", { minimumFractionDigits: 1 })}</p>
         </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          <p className="text-xs text-slate-500 uppercase">Precio Prom./Gal</p>
+          <p className="text-2xl font-bold text-cyan-400 mt-1">${precioPromedio.toFixed(2)}</p>
+        </div>
       </div>
+
+      <CombustibleCharts byTipo={byTipo} topVehicles={topVehicles} />
 
       <AdvancedFilters filters={filterConfig} />
 
