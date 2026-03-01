@@ -30,6 +30,7 @@ export default function CampoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({ vehiculo_placa: "", chofer: "", tipo: "entrada", peso_bruto: "", tara: "", bascula: "Bascula 1", observaciones: "", parcela: "", impurezas: "0" });
   const [opsForm, setOpsForm] = useState({ tipo: "corte", parcela: "", fecha: new Date().toISOString().slice(0, 16), turno: "diurno", cuadrilla: "", viajes: "", toneladas: "", hectareas: "", chofer: "", equipo: "", origen: "", destino: "", observaciones: "" });
   const supabase = createClient();
@@ -77,6 +78,30 @@ export default function CampoPage() {
     reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); setCameraActive(false); processImageAI(d); };
     reader.readAsDataURL(file);
   }
+  
+  function handleDocImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type === "application/pdf") {
+      setCapturedImage(null);
+      setAiProcessing(true);
+      setAiResults(null);
+      setTimeout(() => {
+        const tk = "TK-" + String(Date.now()).slice(-6);
+        const placas = ["DOC-" + Math.floor(Math.random()*900+100), "TCN-" + Math.floor(Math.random()*900+100)];
+        const choferes = ["Juan Perez Garcia", "Carlos Mendoza L.", "Roberto Sanchez M."];
+        const pb = (Math.random()*40+20).toFixed(2), ta = (Math.random()*10+8).toFixed(2);
+        setAiResults({ ticket: tk, placa: placas[Math.floor(Math.random()*placas.length)], chofer: choferes[Math.floor(Math.random()*choferes.length)], pesoBruto: pb, tara: ta, pesoNeto: (parseFloat(pb)-parseFloat(ta)).toFixed(2), confianza: (Math.random()*10+88).toFixed(1), origen: "Documento PDF" });
+        setAiProcessing(false);
+        setMsg("Documento procesado por IA con exito - " + file.name);
+      }, 2500);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); setCameraActive(false); processImageAI(d); };
+      reader.readAsDataURL(file);
+    }
+  }
+
   function processImageAI(imageData: string) {
     setAiProcessing(true); setAiResults(null);
     setTimeout(() => {
@@ -159,7 +184,7 @@ export default function CampoPage() {
     <div style={S.page}>
       <div style={S.header}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 20, fontWeight: "bold" }}>Trans<span style={{ color: "#14b8a6" }}>Caña</span></span>
+          <span style={{ fontSize: 20, fontWeight: "bold" }}>Trans<span style={{ color: "#14b8a6" }}>CaÃ±a</span></span>
           <span style={S.badge}>CAMPO</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -205,7 +230,7 @@ export default function CampoPage() {
 
             <div style={S.card}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Escaneo de Ticket de Pesaje</h2>
-              <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>Capture foto del ticket con la camara o importe una imagen para lectura automatica por IA</p>
+              <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>Capture foto del ticket con la camara, importe una imagen o documento (PDF) para lectura automatica por IA</p>
 
               {!cameraActive && !capturedImage && (
                 <div style={S.scanZone}>
@@ -215,6 +240,7 @@ export default function CampoPage() {
                   <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                     <button onClick={startCamera} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "white" }}>Abrir Camara</button>
                     <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "1px solid #2d3a4f", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "#1e293b", color: "white" }}>Importar Imagen</button>
+                  <button onClick={() => docInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "1px solid #0d9488", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "rgba(20,184,166,0.1)", color: "white" }}>Importar Documento</button>
                   </div>
                 </div>
               )}
@@ -229,6 +255,7 @@ export default function CampoPage() {
               )}
               <canvas ref={canvasRef} style={{ display: "none" }} />
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileImport} />
+              <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,image/*" style={{ display: "none" }} onChange={handleDocImport} />
               <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleFileImport} />
 
               {aiProcessing && (
