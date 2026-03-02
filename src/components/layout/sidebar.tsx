@@ -14,6 +14,7 @@ import {
   Settings,
   Tractor,
   Scale,
+  ScanLine,
   Truck,
   FileText,
   Fuel,
@@ -49,6 +50,7 @@ const sections: NavSection[] = [
     items: [
       { key: "nav.operaciones", href: "/dashboard/operaciones", icon: Tractor },
       { key: "nav.pesaje", href: "/dashboard/pesaje", icon: Scale },
+      { key: "nav.escaneo_ticket", href: "/dashboard/pesaje/escaneo", icon: ScanLine },
       { key: "nav.flota", href: "/dashboard/flota", icon: Truck },
       { key: "nav.combustible", href: "/dashboard/combustible", icon: Fuel },
       { key: "nav.costos", href: "/dashboard/costos", icon: DollarSign },

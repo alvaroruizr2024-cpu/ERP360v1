@@ -4,7 +4,7 @@ import { AdvancedFilters } from "@/components/ui/advanced-filters";
 import { PesajeCharts } from "@/components/pesaje/pesaje-charts";
 import { ExportButtons } from "@/components/reportes/export-buttons";
 import Link from "next/link";
-import { Plus, Scale } from "lucide-react";
+import { Plus, Scale, ScanLine } from "lucide-react";
 
 const PAGE_SIZE = 15;
 
@@ -96,6 +96,13 @@ export default async function PesajePage({
         </div>
         <div className="flex gap-2 items-center">
           <ExportButtons title="Control de Pesaje" headers={exportHeaders} rows={exportRows} filename="pesaje" />
+          <Link
+            href="/dashboard/pesaje/escaneo"
+            className="flex items-center gap-2 bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-cyan-500 transition-colors"
+          >
+            <ScanLine className="w-4 h-4" />
+            Escanear Ticket
+          </Link>
           <Link
             href="/dashboard/pesaje/nuevo"
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-500 transition-colors"
