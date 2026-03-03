@@ -113,41 +113,72 @@ export default function CampoPage() {
   function handleDocImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type === "application/pdf") {
-      setCapturedImage(null);
-      setAiProcessing(true);
-      setAiResults(null);
-      setTimeout(() => {
-        const tk = "TK-" + String(Date.now()).slice(-6);
-        const placas = ["DOC-" + Math.floor(Math.random()*900+100), "TCN-" + Math.floor(Math.random()*900+100)];
-        const choferes = ["Juan Perez Garcia", "Carlos Mendoza L.", "Roberto Sanchez M."];
-        const pb = (Math.random()*40+20).toFixed(2), ta = (Math.random()*10+8).toFixed(2);
-        setAiResults({ ticket: tk, placa: placas[Math.floor(Math.random()*placas.length)], chofer: choferes[Math.floor(Math.random()*choferes.length)], pesoBruto: pb, tara: ta, pesoNeto: (parseFloat(pb)-parseFloat(ta)).toFixed(2), confianza: (Math.random()*10+88).toFixed(1), origen: "Documento PDF" });
-        setAiProcessing(false);
-        setMsg("Documento procesado por IA con exito - " + file.name);
-      }, 2500);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); setCameraActive(false); processImageAI(d); };
-      reader.readAsDataURL(file);
-    }
+    // Para PDFs e imágenes, convertir a base64 y enviar al OCR
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const d = ev.target?.result as string;
+      if (file.type.startsWith("image/")) {
+        setCapturedImage(d);
+      } else {
+        setCapturedImage(null);
+      }
+      setCameraActive(false);
+      processImageAI(d);
+    };
+    reader.readAsDataURL(file);
   }
 
-  function processImageAI(imageData: string) {
-    setAiProcessing(true); setAiResults(null);
-    setTimeout(() => {
-      const tk = "TK-" + String(Date.now()).slice(-6);
-      const placas = ["XAB-" + Math.floor(Math.random()*900+100), "TCN-" + Math.floor(Math.random()*900+100)];
-      const choferes = ["Juan Perez Garcia", "Carlos Mendoza L.", "Roberto Sanchez M."];
-      const pb = (Math.random()*40+20).toFixed(2), ta = (Math.random()*10+8).toFixed(2);
-      setAiResults({ ticket: tk, placa: placas[Math.floor(Math.random()*placas.length)], chofer: choferes[Math.floor(Math.random()*choferes.length)], pesoBruto: pb, tara: ta, pesoNeto: (parseFloat(pb)-parseFloat(ta)).toFixed(2), confianza: (Math.random()*10+88).toFixed(1) });
-      setAiProcessing(false); setMsg("Ticket escaneado por IA con exito");
-    }, 2500);
+  async function processImageAI(imageData: string) {
+    setAiProcessing(true); setAiResults(null); setMsg("");
+    try {
+      const res = await fetch("/api/ocr-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setMsg("⚠️ " + (json.error || "Error procesando imagen"));
+        setAiProcessing(false);
+        return;
+      }
+      const d = json.data;
+      setAiResults({
+        ticket: d.ticket || "",
+        placa: d.placa || "",
+        chofer: d.chofer || "",
+        pesoBruto: d.pesoBruto || "",
+        tara: d.tara || "",
+        pesoNeto: d.pesoNeto || "",
+        fecha: d.fecha || "",
+        hora: d.hora || "",
+        bascula: d.bascula || "",
+        parcela: d.parcela || "",
+        impurezas: d.impurezas || "",
+        confianza: d.confianza || "0",
+        observaciones: d.observaciones || ""
+      });
+      setAiProcessing(false);
+      setMsg("✅ Ticket escaneado - Datos extraidos de la imagen");
+    } catch (err: any) {
+      setAiProcessing(false);
+      setMsg("⚠️ Error de conexion: " + (err.message || "No se pudo conectar con el servidor"));
+    }
   }
   function applyAiData() {
     if (!aiResults) return;
-    setForm(f => ({ ...f, vehiculo_placa: aiResults.placa || f.vehiculo_placa, chofer: aiResults.chofer || f.chofer, peso_bruto: aiResults.pesoBruto || f.peso_bruto, tara: aiResults.tara || f.tara }));
-    setMsg("Datos IA aplicados al formulario");
+    setForm(f => ({
+      ...f,
+      vehiculo_placa: aiResults.placa || f.vehiculo_placa,
+      chofer: aiResults.chofer || f.chofer,
+      peso_bruto: aiResults.pesoBruto || f.peso_bruto,
+      tara: aiResults.tara || f.tara,
+      bascula: aiResults.bascula || f.bascula,
+      parcela: aiResults.parcela || f.parcela,
+      impurezas: aiResults.impurezas || f.impurezas,
+      observaciones: aiResults.observaciones || f.observaciones,
+    }));
+    setMsg("✅ Datos extraidos aplicados al formulario - Verifique antes de registrar");
   }
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setMsg("");
