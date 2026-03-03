@@ -143,23 +143,38 @@ export default function CampoPage() {
         return;
       }
       const d = json.data;
-      setAiResults({
-        ticket: d.ticket || "",
-        placa: d.placa || "",
-        chofer: d.chofer || "",
-        pesoBruto: d.pesoBruto || "",
-        tara: d.tara || "",
-        pesoNeto: d.pesoNeto || "",
-        fecha: d.fecha || "",
-        hora: d.hora || "",
-        bascula: d.bascula || "",
-        parcela: d.parcela || "",
-        impurezas: d.impurezas || "",
-        confianza: d.confianza || "0",
-        observaciones: d.observaciones || ""
-      });
+      const results: Record<string, string> = {};
+      const fieldLabels: Record<string, string> = {
+        tipoDocumento: "Tipo Documento", empresa: "Empresa", ticket: "Ticket/Folio",
+        placa: "Placa", chofer: "Chofer", transportista: "Transportista",
+        producto: "Producto", origen: "Origen", destino: "Destino",
+        pesoBruto: "Peso Bruto", tara: "Tara", pesoNeto: "Peso Neto", unidadPeso: "Unidad",
+        fecha: "Fecha", hora: "Hora",
+        fechaPesoBruto: "Fecha P.Bruto", horaPesoBruto: "Hora P.Bruto",
+        fechaTara: "Fecha Tara", horaTara: "Hora Tara",
+        bascula: "Bascula", parcela: "Parcela/Campo", variedad: "Variedad",
+        impurezas: "Impurezas %", guiaRemision: "Guia Remision",
+        nroViaje: "Nro Viaje", turno: "Turno",
+        observaciones: "Observaciones", datosAdicionales: "Datos Adicionales",
+        camposNoLegibles: "No Legibles",
+      };
+      for (const [key, label] of Object.entries(fieldLabels)) {
+        if (d[key] && String(d[key]).trim() !== "") {
+          results[label] = String(d[key]);
+        }
+      }
+      results["confianza"] = d.confianza || "0";
+      results["_placa"] = d.placa || "";
+      results["_chofer"] = d.chofer || "";
+      results["_pesoBruto"] = d.pesoBruto || "";
+      results["_tara"] = d.tara || "";
+      results["_bascula"] = d.bascula || "";
+      results["_parcela"] = d.parcela || d.origen || "";
+      results["_impurezas"] = d.impurezas || "";
+      results["_observaciones"] = d.observaciones || "";
+      setAiResults(results);
       setAiProcessing(false);
-      setMsg("✅ Ticket escaneado - Datos extraidos de la imagen");
+      setMsg("✅ Documento escaneado - Confianza: " + (d.confianza || "?") + "% - Verifique los datos");
     } catch (err: any) {
       setAiProcessing(false);
       setMsg("⚠️ Error de conexion: " + (err.message || "No se pudo conectar con el servidor"));
@@ -169,14 +184,14 @@ export default function CampoPage() {
     if (!aiResults) return;
     setForm(f => ({
       ...f,
-      vehiculo_placa: aiResults.placa || f.vehiculo_placa,
-      chofer: aiResults.chofer || f.chofer,
-      peso_bruto: aiResults.pesoBruto || f.peso_bruto,
-      tara: aiResults.tara || f.tara,
-      bascula: aiResults.bascula || f.bascula,
-      parcela: aiResults.parcela || f.parcela,
-      impurezas: aiResults.impurezas || f.impurezas,
-      observaciones: aiResults.observaciones || f.observaciones,
+      vehiculo_placa: aiResults["_placa"] || f.vehiculo_placa,
+      chofer: aiResults["_chofer"] || f.chofer,
+      peso_bruto: aiResults["_pesoBruto"] || f.peso_bruto,
+      tara: aiResults["_tara"] || f.tara,
+      bascula: aiResults["_bascula"] || f.bascula,
+      parcela: aiResults["_parcela"] || f.parcela,
+      impurezas: aiResults["_impurezas"] || f.impurezas,
+      observaciones: aiResults["_observaciones"] || f.observaciones,
     }));
     setMsg("✅ Datos extraidos aplicados al formulario - Verifique antes de registrar");
   }
@@ -332,9 +347,9 @@ export default function CampoPage() {
               )}
               {aiResults && (
                 <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 12, padding: 16, marginTop: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontWeight: 600, color: "#22c55e" }}>Datos extraidos por IA - Confianza: {aiResults.confianza}%</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontWeight: 600, color: "#22c55e" }}>Datos extraidos por IA - Confianza: {aiResults["confianza"]}%</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-                    {Object.entries(aiResults).filter(([k]) => k !== "confianza").map(([k, v]) => (
+                    {Object.entries(aiResults).filter(([k]) => k !== "confianza" && !k.startsWith("_")).map(([k, v]) => (
                       <div key={k} style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 10 }}>
                         <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase" }}>{k}</div>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>{v}</div>
