@@ -31,6 +31,7 @@ export default function CampoPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const nativeCaptureRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({ vehiculo_placa: "", chofer: "", tipo: "entrada", peso_bruto: "", tara: "", bascula: "Bascula 1", observaciones: "", parcela: "", impurezas: "0" });
   const [opsForm, setOpsForm] = useState({ tipo: "corte", parcela: "", fecha: new Date().toISOString().slice(0, 16), turno: "diurno", cuadrilla: "", viajes: "", toneladas: "", hectareas: "", chofer: "", equipo: "", origen: "", destino: "", observaciones: "" });
   const supabase = createClient();
@@ -55,11 +56,41 @@ export default function CampoPage() {
 
   async function startCamera() {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMsg("⚠️ Su navegador no soporta camara en vivo. Use el boton '📸 Tomar Foto' que abre la camara nativa.");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } });
       streamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
       setCameraActive(true); setCapturedImage(null); setAiResults(null); setMsg("");
-    } catch (err: any) { setMsg("Error al acceder a la camara: " + err.message); }
+    } catch (err: any) {
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setMsg("⚠️ Permiso de camara denegado. Use el boton '📸 Tomar Foto' que abre la camara nativa sin permisos del navegador.");
+      } else if (err.name === "NotFoundError") {
+        setMsg("⚠️ No se detecto camara. Use 'Importar Imagen' para subir una foto existente.");
+      } else if (err.name === "NotReadableError") {
+        setMsg("⚠️ Camara en uso por otra app. Cierre otras apps o use '📸 Tomar Foto'.");
+      } else if (err.name === "OverconstrainedError") {
+        try {
+          const fallback = await navigator.mediaDevices.getUserMedia({ video: true });
+          streamRef.current = fallback;
+          if (videoRef.current) { videoRef.current.srcObject = fallback; videoRef.current.play(); }
+          setCameraActive(true); setCapturedImage(null); setAiResults(null); setMsg("");
+          return;
+        } catch { setMsg("⚠️ No se pudo configurar la camara. Use '📸 Tomar Foto'."); }
+      } else {
+        setMsg("⚠️ Error de camara (" + err.name + "). Use el boton '📸 Tomar Foto' como alternativa.");
+      }
+    }
+  }
+  function handleNativeCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); setCameraActive(false); processImageAI(d); };
+    reader.onerror = () => { setMsg("Error al leer la imagen. Intente de nuevo."); };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
   function capturePhoto() {
     if (!videoRef.current || !canvasRef.current) return;
@@ -236,11 +267,15 @@ export default function CampoPage() {
                 <div style={S.scanZone}>
                   <div style={{ fontSize: 56, marginBottom: 10 }}>&#128248;</div>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>Toque para escanear ticket de pesaje</div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Arrastre imagen o use los botones</div>
-                  <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button onClick={startCamera} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "white" }}>Abrir Camara</button>
-                    <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "1px solid #2d3a4f", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "#1e293b", color: "white" }}>Importar Imagen</button>
-                  <button onClick={() => docInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 24px", borderRadius: 12, border: "1px solid #0d9488", fontSize: 14, fontWeight: 600, cursor: "pointer", background: "rgba(20,184,166,0.1)", color: "white" }}>Importar Documento</button>
+                  <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>Use la camara nativa o importe una imagen</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                    <button onClick={() => nativeCaptureRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 32px", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "white", width: "100%", maxWidth: 360, justifyContent: "center", boxShadow: "0 4px 15px rgba(124,58,237,0.4)" }}>📸 Tomar Foto del Ticket</button>
+                    <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                      <button onClick={startCamera} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(139,92,246,0.3)", fontSize: 13, fontWeight: 600, cursor: "pointer", background: "rgba(139,92,246,0.1)", color: "#a78bfa" }}>Vista en Vivo</button>
+                      <button onClick={() => fileInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 10, border: "1px solid #2d3a4f", fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#1e293b", color: "white" }}>Importar Imagen</button>
+                      <button onClick={() => docInputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 10, border: "1px solid #0d9488", fontSize: 13, fontWeight: 600, cursor: "pointer", background: "rgba(20,184,166,0.1)", color: "white" }}>Importar Documento</button>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, maxWidth: 360, lineHeight: 1.5 }}>💡 <strong style={{ color: "#e2e8f0" }}>Recomendado:</strong> &quot;Tomar Foto&quot; abre la camara nativa del dispositivo sin necesitar permisos del navegador.</div>
                   </div>
                 </div>
               )}
@@ -256,7 +291,7 @@ export default function CampoPage() {
               <canvas ref={canvasRef} style={{ display: "none" }} />
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileImport} />
               <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,image/*" style={{ display: "none" }} onChange={handleDocImport} />
-              <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleFileImport} />
+              <input ref={nativeCaptureRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleNativeCapture} />
 
               {aiProcessing && (
                 <div style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.1), rgba(20,184,166,0.1))", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 12, padding: 16, marginTop: 16, display: "flex", alignItems: "center", gap: 14 }}>
