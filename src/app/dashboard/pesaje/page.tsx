@@ -28,7 +28,7 @@ export default function PesajeDashboardPage() {
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from("registros_pesaje").select("*").order("created_at", { ascending: false });
+    let query = supabase.from("registros_pesaje_temporal").select("*").order("created_at", { ascending: false });
     if (filter !== "todos") query = query.eq("estado", filter);
     const { data } = await query.limit(200);
     if (data) setTickets(data as Ticket[]);
@@ -49,23 +49,35 @@ export default function PesajeDashboardPage() {
 
   async function handleApprove(id: string, tk: string) {
     setLoading(true);
-    const { error } = await supabase.from("registros_pesaje").update({ estado: "completo" }).eq("id", id);
-    if (error) setMsg("Error: " + error.message);
-    else { setMsg("Ticket " + tk + " APROBADO exitosamente"); await audit("aprobar_ticket", "Ticket " + tk + " aprobado por " + user?.email); loadTickets(); }
-    setLoading(false); setTimeout(() => setMsg(""), 4000);
+    try {
+      const res = await fetch("/api/pesaje/aprobar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "aprobar", id, aprobado_por: user?.email || "sistema" }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) { setMsg("Error: " + (json.error || "Error aprobando")); }
+      else { setMsg("Ticket " + tk + " APROBADO — Movido a BD principal para procesamiento ERP"); await audit("aprobar_ticket", "Ticket " + tk + " aprobado y movido a BD principal por " + user?.email); loadTickets(); }
+    } catch (err: any) { setMsg("Error: " + err.message); }
+    setLoading(false); setTimeout(() => setMsg(""), 5000);
   }
 
   async function handleReject(id: string, tk: string) {
     setLoading(true);
-    const { error } = await supabase.from("registros_pesaje").update({ estado: "anulado" }).eq("id", id);
-    if (error) setMsg("Error: " + error.message);
-    else { setMsg("Ticket " + tk + " RECHAZADO"); await audit("rechazar_ticket", "Ticket " + tk + " rechazado por " + user?.email); loadTickets(); }
+    try {
+      const res = await fetch("/api/pesaje/aprobar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rechazar", id, aprobado_por: user?.email || "sistema" }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) { setMsg("Error: " + (json.error || "Error rechazando")); }
+      else { setMsg("Ticket " + tk + " RECHAZADO"); await audit("rechazar_ticket", "Ticket " + tk + " rechazado por " + user?.email); loadTickets(); }
+    } catch (err: any) { setMsg("Error: " + err.message); }
     setLoading(false); setTimeout(() => setMsg(""), 4000);
   }
 
   async function handleDelete(id: string, tk: string) {
     setLoading(true);
-    const { error } = await supabase.from("registros_pesaje").delete().eq("id", id);
+    const { error } = await supabase.from("registros_pesaje_temporal").delete().eq("id", id);
     if (error) setMsg("Error: " + error.message);
     else { setMsg("Ticket " + tk + " ELIMINADO permanentemente"); await audit("eliminar_ticket", "Ticket " + tk + " eliminado por " + user?.email); loadTickets(); }
     setConfirmDelete(null); setLoading(false); setTimeout(() => setMsg(""), 4000);
@@ -83,7 +95,7 @@ export default function PesajeDashboardPage() {
     if (!selected) return;
     setLoading(true);
     const pb = parseFloat(editForm.peso_bruto)||0, ta = parseFloat(editForm.tara)||0, neto = pb - ta;
-    const { error } = await supabase.from("registros_pesaje").update({
+    const { error } = await supabase.from("registros_pesaje_temporal").update({
       vehiculo_placa: editForm.vehiculo_placa, chofer: editForm.chofer, tipo: editForm.tipo,
       peso_bruto: pb, tara: ta, peso_neto: neto, bascula: editForm.bascula, parcela: editForm.parcela,
       impurezas: parseFloat(editForm.impurezas)||0, observaciones: editForm.observaciones,
@@ -132,7 +144,7 @@ export default function PesajeDashboardPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 24, fontWeight: 800, color: "white" }}>Control de Pesaje y Balanza</div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Validacion de registros de campo — Responsable: {user?.email || "..."} — Aprobar, editar o eliminar para procesamiento ERP</div>
+          <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Validacion de registros de campo — Responsable: {user?.email || "..."} — Registros temporales de campo — Aprobar mueve a BD principal</div>
         </div>
         <button onClick={loadTickets} style={{ padding: "8px 20px", borderRadius: 8, background: "#0891b2", color: "white", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{loading ? "Cargando..." : "Actualizar"}</button>
       </div>
@@ -206,7 +218,7 @@ export default function PesajeDashboardPage() {
 
       {/* FOOTER TRAZABILIDAD */}
       <div style={{ marginTop: 20, padding: 14, background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 12, color: "#475569" }}>
-        <strong style={{ color: "#94a3b8" }}>Trazabilidad:</strong> Cada accion (aprobar, rechazar, editar, eliminar) se registra en auditoria con usuario, fecha y detalle. Los registros aprobados quedan disponibles para procesamiento en Zafra, Colonos y Contabilidad.
+        <strong style={{ color: "#94a3b8" }}>Flujo:</strong> CAMPO (escaneo OCR) &#8594; Tabla Temporal (esta vista) &#8594; Aprobar &#8594; Base de Datos Principal (Zafra, Colonos, Contabilidad). Cada accion queda registrada en auditoria.
       </div>
 
       {/* MODAL EDITAR */}

@@ -40,7 +40,7 @@ export default function CampoPage() {
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("registros_pesaje").select("*").order("created_at", { ascending: false }).limit(50);
+    const { data } = await supabase.from("registros_pesaje_temporal").select("*").order("created_at", { ascending: false }).limit(50);
     if (data) setTickets(data as Ticket[]);
     setLoading(false);
   }, []);
@@ -202,7 +202,7 @@ export default function CampoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const record: any = { ticket, vehiculo_placa: form.vehiculo_placa, chofer: form.chofer, tipo: form.tipo, peso_bruto: pesoB, tara: taraV, peso_neto: neto, bascula: form.bascula, observaciones: form.observaciones, estado: "pendiente", origen_registro: "campo", parcela: form.parcela, impurezas: parseFloat(form.impurezas) || 0 };
     if (user?.id) record.user_id = user.id;
-    const { data, error } = await supabase.from("registros_pesaje").insert(record).select().single();
+    const { data, error } = await supabase.from("registros_pesaje_temporal").insert(record).select().single();
     if (error) { setMsg("Error: " + error.message); }
     else {
       setMsg("Ticket " + (data?.ticket || ticket) + " registrado - Pendiente validacion ERP 360");
