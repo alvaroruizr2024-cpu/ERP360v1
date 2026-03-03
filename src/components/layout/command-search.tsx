@@ -129,9 +129,9 @@ export function CommandSearch() {
                           className="flex items-center gap-2 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
                         >
                         <Search className="w-4 h-4" />
-                        <span className="hidden md:inline">Buscar...</span>span>
-                        <kbd className="hidden md:inline text-xs bg-slate-600 px-1.5 py-0.5 rounded">⌘K</kbd>kbd>
-                </button>button>
+                        <span className="hidden md:inline">Buscar...</span>
+                        <kbd className="hidden md:inline text-xs bg-slate-600 px-1.5 py-0.5 rounded">⌘K</kbd>
+                </button>
               );
   }
   
@@ -155,11 +155,11 @@ export function CommandSearch() {
                                               />
                                   <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white">
                                               <X className="w-4 h-4" />
-                                  </button>button>
-                        </div>div>
+                                  </button>
+                        </div>
                         <div className="max-h-72 overflow-y-auto py-2">
                           {filtered.length === 0 && (
-                        <p className="text-sm text-slate-500 text-center py-6">Sin resultados</p>p>
+                        <p className="text-sm text-slate-500 text-center py-6">Sin resultados</p>
                                   )}
                           {filtered.map((r, i) => (
                         <button
@@ -173,11 +173,11 @@ export function CommandSearch() {
                                         }`}
                                       >
                           {r.name}
-                                      <span className="text-xs text-slate-500 ml-2">{r.href}</span>span>
-                        </button>button>
+                                      <span className="text-xs text-slate-500 ml-2">{r.href}</span>
+                        </button>
                       ))}
-                        </div>div>
-                </div>div>
-          </div>div>
+                        </div>
+                </div>
+          </div>
         );
-}</button>
+}

@@ -20,14 +20,14 @@ export default function DashboardError({
               <h2 className="text-xl font-bold text-white">Error al cargar el módulo</h2>h2>
               <p className="text-slate-400 text-sm text-center max-w-md">
                       Hubo un problema de conexión con el servidor. Esto puede ser temporal.
-              </p>p>
+              </p>
               <button
                         onClick={() => reset()}
                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
                       >
                       <RefreshCw className="w-4 h-4" />
                       Reintentar
-              </button>button>
-        </div>div>
+              </button>
+        </div>
       );
-}</div>
+}
