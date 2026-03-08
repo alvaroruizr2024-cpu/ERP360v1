@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 import type {
   PlanMantenimiento, ComponenteVehiculo, ControlLlanta, OrdenTrabajoMto,
   CargaCombustible, ChecklistPreoperativo, DocumentoConductor,
@@ -14,7 +14,7 @@ import type {
   CargaCombustibleForm, ChecklistForm
 } from '@/types/sprint15';
 
-const supabase = createClientComponentClient();
+const supabase = createClient();
 
 // ============================================================================
 // Hook: useTenantId
