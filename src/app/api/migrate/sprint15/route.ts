@@ -24,23 +24,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized. Provide x-migration-key header or db_password in body.' }, { status: 401 });
   }
 
-  // Construir DATABASE_URL
+  // Construir DATABASE_URL - try multiple connection strings like pesaje/setup
   const dbPassword = body.db_password || process.env.SUPABASE_DB_PASSWORD;
-  const databaseUrl = process.env.DATABASE_URL
-    || process.env.SUPABASE_DB_URL
-    || (dbPassword ? `postgresql://postgres.uinoropxppiuqgzktqjr:${dbPassword}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres` : null);
+  const ref = 'uinoropxppiuqgzktqjr';
+  const ep = dbPassword ? encodeURIComponent(dbPassword) : '';
 
-  if (!databaseUrl) {
+  const connectionStrings = [
+    process.env.DATABASE_URL,
+    process.env.SUPABASE_DB_URL,
+    ep ? `postgresql://postgres.${ref}:${ep}@aws-0-us-east-1.pooler.supabase.com:6543/postgres` : null,
+    ep ? `postgresql://postgres:${ep}@db.${ref}.supabase.co:5432/postgres` : null,
+    ep ? `postgresql://postgres.${ref}:${ep}@aws-0-us-west-1.pooler.supabase.com:6543/postgres` : null,
+  ].filter(Boolean) as string[];
+
+  if (connectionStrings.length === 0) {
     return NextResponse.json({
-      error: 'DATABASE_URL not configured. Set DATABASE_URL env var or provide db_password in body.',
+      error: 'No database connection available. Set DATABASE_URL env var or provide db_password in body.',
     }, { status: 500 });
   }
 
-  const pool = new Pool({
-    connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 30000,
-  });
+  // Try each connection string
+  let pool: Pool | null = null;
+  let connError = '';
+  for (const cs of connectionStrings) {
+    try {
+      const p = new Pool({ connectionString: cs, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 });
+      const client = await p.connect();
+      await client.query('SELECT 1');
+      client.release();
+      pool = p;
+      break;
+    } catch (e: any) {
+      connError = e.message;
+    }
+  }
+
+  if (!pool) {
+    return NextResponse.json({ error: `Cannot connect to database: ${connError}`, details: [] }, { status: 500 });
+  }
 
   const results: string[] = [];
 
