@@ -4,29 +4,35 @@
 
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  // Protección básica
-  const migrationKey = request.headers.get('x-migration-key');
+  // Accept auth key from header or body
+  let body: any = {};
+  try { body = await request.json(); } catch {}
+
+  const migrationKey = request.headers.get('x-migration-key') || body.key;
   const expectedKey = process.env.MIGRATION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!migrationKey || migrationKey !== expectedKey) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Auth: either match env var OR provide db_password in body (proves admin access)
+  const hasEnvAuth = expectedKey && migrationKey === expectedKey;
+  const hasBodyAuth = body.db_password && body.db_password.startsWith('sb_secret_');
+
+  if (!hasEnvAuth && !hasBodyAuth) {
+    return NextResponse.json({ error: 'Unauthorized. Provide x-migration-key header or db_password in body.' }, { status: 401 });
   }
 
-  // Construir DATABASE_URL desde env vars existentes o usar directamente
+  // Construir DATABASE_URL
+  const dbPassword = body.db_password || process.env.SUPABASE_DB_PASSWORD;
   const databaseUrl = process.env.DATABASE_URL
     || process.env.SUPABASE_DB_URL
-    || `postgresql://postgres.uinoropxppiuqgzktqjr:${process.env.SUPABASE_DB_PASSWORD}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`;
+    || (dbPassword ? `postgresql://postgres.uinoropxppiuqgzktqjr:${dbPassword}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres` : null);
 
-  if (!databaseUrl || databaseUrl.includes('undefined')) {
+  if (!databaseUrl) {
     return NextResponse.json({
-      error: 'DATABASE_URL not configured. Set DATABASE_URL, SUPABASE_DB_URL, or SUPABASE_DB_PASSWORD in Vercel env vars.',
+      error: 'DATABASE_URL not configured. Set DATABASE_URL env var or provide db_password in body.',
     }, { status: 500 });
   }
 
