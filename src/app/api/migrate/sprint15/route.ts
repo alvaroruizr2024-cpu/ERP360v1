@@ -19,9 +19,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 500 });
+  // Construir DATABASE_URL desde env vars existentes o usar directamente
+  const databaseUrl = process.env.DATABASE_URL
+    || process.env.SUPABASE_DB_URL
+    || `postgresql://postgres.uinoropxppiuqgzktqjr:${process.env.SUPABASE_DB_PASSWORD}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`;
+
+  if (!databaseUrl || databaseUrl.includes('undefined')) {
+    return NextResponse.json({
+      error: 'DATABASE_URL not configured. Set DATABASE_URL, SUPABASE_DB_URL, or SUPABASE_DB_PASSWORD in Vercel env vars.',
+    }, { status: 500 });
   }
 
   const pool = new Pool({
@@ -87,8 +93,6 @@ export async function POST(request: Request) {
 function getMigrationStatements(): string[] {
   return [
     // 1. ENUMS
-    `CREATE TYPE IF NOT EXISTS tipo_mantenimiento AS ENUM ('preventivo', 'correctivo', 'predictivo', 'emergencia')`,
-
     `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tipo_mantenimiento') THEN
       CREATE TYPE tipo_mantenimiento AS ENUM ('preventivo', 'correctivo', 'predictivo', 'emergencia');
     END IF; END $$`,
