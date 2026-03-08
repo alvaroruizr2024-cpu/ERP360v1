@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
     `postgresql://postgres:${ep}@db.${ref}.supabase.co:5432/postgres`,
     `postgresql://postgres.${ref}:${ep}@aws-0-us-west-1.pooler.supabase.com:6543/postgres`,
     `postgresql://postgres.${ref}:${ep}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`,
+    `postgresql://postgres.${ref}:${ep}@${ref}.pooler.supabase.com:6543/postgres`,
+    `postgresql://postgres.${ref}:${ep}@${ref}.pooler.supabase.com:5432/postgres`,
+    `postgresql://postgres.${ref}:${ep}@${ref}.supabase.com:6543/postgres`,
   ].filter(Boolean) as string[];
 
   const errors: string[] = [];
