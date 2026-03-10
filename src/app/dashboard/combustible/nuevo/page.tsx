@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { crearDespachoCombustible } from "@/lib/actions/transcana";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { FuelScanner } from "@/components/ai/fuel-scanner";
 
 export default async function NuevoDespachePage() {
   const supabase = createClient();
@@ -17,7 +18,9 @@ export default async function NuevoDespachePage() {
       </div>
 
       <form action={crearDespachoCombustible} className="max-w-2xl space-y-6">
-        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
+        <FuelScanner />
+
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-slate-300 mb-1">Placa Vehículo *</label>

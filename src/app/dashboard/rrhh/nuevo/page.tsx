@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { crearEmpleado } from "@/lib/actions/rrhh";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { RRHHScanner } from "@/components/ai/rrhh-scanner";
 
 export default async function NuevoEmpleadoPage() {
   const supabase = createClient();

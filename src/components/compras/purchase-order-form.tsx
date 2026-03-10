@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { DocScanner } from "@/components/ai/doc-scanner";
 import { crearOrdenCompra } from "@/lib/actions/compras";
 
 type ProveedorOption = { id: string; nombre: string };
@@ -25,6 +26,19 @@ export function PurchaseOrderForm({
   const [items, setItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAIScan = (data: any) => {
+    if (data.ruc) {
+      const prov = proveedores.find(p => p.nombre?.toLowerCase().includes(data.proveedor?.toLowerCase() || ""));
+      if (prov) setProveedorId(prov.id);
+    }
+    if (data.items?.length) {
+      setItems(data.items.map((it: any) => ({
+        producto_id: "", nombre: it.descripcion || "", cantidad: it.cantidad || 1, precio_unitario: it.precio_unitario || 0
+      })));
+    }
+    if (data.observaciones) setNotas(data.observaciones);
+  };
 
   function addItem() {
     setItems([...items, { producto_id: "", nombre: "", cantidad: 1, precio_unitario: 0 }]);
@@ -51,6 +65,8 @@ export function PurchaseOrderForm({
     }
     setItems(updated);
   }
+
+  // AI Scanner block rendered in JSX below
 
   const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0);
   const impuesto = subtotal * 0.16;

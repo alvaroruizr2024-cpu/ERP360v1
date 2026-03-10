@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { DocScanner } from "@/components/ai/doc-scanner";
 import { crearAsiento } from "@/lib/actions/contabilidad";
 
 type CuentaOption = { id: string; codigo: string; nombre: string };
@@ -15,6 +16,10 @@ export function JournalEntryForm({ cuentas }: { cuentas: CuentaOption[] }) {
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAIScan = (data: any) => {
+    if (data.tipo_documento) setDescripcion(data.tipo_documento + " " + (data.numero || "") + " " + (data.emisor || ""));
+  };
 
   function addLinea() {
     setLineas([...lineas, { cuenta_id: "", debe: 0, haber: 0 }]);
@@ -53,6 +58,8 @@ export function JournalEntryForm({ cuentas }: { cuentas: CuentaOption[] }) {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
+      <DocScanner tipo="documento_general" onResult={handleAIScan} allowedTypes={["factura_compra","factura_venta","nota_credito","recibo_honorarios","documento_general"]} />
+
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <label className="block text-sm text-slate-300 mb-1">Descripcion *</label>
         <input

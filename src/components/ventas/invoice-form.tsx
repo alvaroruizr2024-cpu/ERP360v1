@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { DocScanner } from "@/components/ai/doc-scanner";
 import { crearFactura } from "@/lib/actions/facturas";
 
 type ClienteOption = { id: string; nombre: string };
@@ -32,6 +33,19 @@ export function InvoiceForm({
   const [items, setItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAIScan = (data: any) => {
+    if (data.ruc_cliente) {
+      const cli = clientes.find((c: any) => c.rfc === data.ruc_cliente || c.nombre?.toLowerCase().includes(data.razon_social?.toLowerCase() || ""));
+      if (cli) setClienteId(cli.id);
+    }
+    if (data.items?.length) {
+      setItems(data.items.map((it: any) => ({
+        producto_id: "", cantidad: it.cantidad || 1, precio_unitario: it.precio_unitario || 0
+      })));
+    }
+    if (data.observaciones) setNotas(data.observaciones || "");
+  };
 
   function addItem() {
     setItems([

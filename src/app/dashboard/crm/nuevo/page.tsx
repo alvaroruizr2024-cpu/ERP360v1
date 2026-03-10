@@ -1,6 +1,7 @@
 import { crearLead } from "@/lib/actions/crm";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { GenericScanner } from "@/components/ai/generic-scanner";
 
 export default function NuevoLeadPage() {
   return (
