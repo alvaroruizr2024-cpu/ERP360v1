@@ -184,6 +184,7 @@ function EscanearTab() {
 
     const record: any = {
       ticket,
+      numero_ticket: form.numero_ticket || ticket,
       vehiculo_placa: form.vehiculo_placa,
       chofer: form.chofer,
       tipo: form.tipo,
@@ -196,6 +197,15 @@ function EscanearTab() {
       origen_registro: 'conductor_pwa',
       parcela: form.parcela,
       impurezas: parseFloat(form.impurezas)||0,
+      fecha_pesaje: form.fecha_pesaje,
+      hora_pesaje: form.hora_pesaje,
+      transportista: form.transportista,
+      variedad: form.variedad,
+      guia_remision: form.guia_remision,
+      nro_viaje: form.nro_viaje,
+      turno: form.turno,
+      producto: form.producto,
+      ruta: form.ruta,
     };
     if(user?.id) record.user_id = user.id;
     const {error} = await supabase.from('registros_pesaje_temporal').insert(record);
