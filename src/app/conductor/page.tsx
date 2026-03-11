@@ -34,8 +34,15 @@ function EscanearTab() {
   const [msg, setMsg] = useState('');
   const [capturedImage, setCapturedImage] = useState<string|null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [aiResults, setAiResults] = useState<Record<string,string>|null>(null);
-  const [form, setForm] = useState({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0',ruta:''});
+  const [aiData, setAiData] = useState<any>(null);
+  const [form, setForm] = useState({
+    vehiculo_placa:'', chofer:'', tipo:'entrada', peso_bruto:'', tara:'',
+    bascula:'Bascula 1 - Ingenio Laredo', observaciones:'', parcela:'', impurezas:'0',
+    ruta:'', numero_ticket:'', fecha_pesaje:'', hora_pesaje:'', transportista:'',
+    variedad:'', guia_remision:'', nro_viaje:'', turno:'diurno', producto:'caña de azucar',
+    origen:'', destino:'', unidad_peso:'TM',
+    fecha_peso_bruto:'', hora_peso_bruto:'', fecha_tara:'', hora_tara:'',
+  });
   const [loading, setLoading] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -46,9 +53,8 @@ function EscanearTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pesoNeto = (parseFloat(form.peso_bruto)||0) - (parseFloat(form.tara)||0);
 
-  // Cargar data real del sistema
   useEffect(()=>{
-    supabase.from('vehiculos').select('placa, marca, modelo, tipo').eq('tipo','camion').order('placa').then(({data})=>setVehiculos(data||[]));
+    supabase.from('vehiculos').select('placa, marca, modelo, tipo').order('placa').then(({data})=>setVehiculos(data||[]));
     supabase.from('conductores').select('nombre, dni, telefono').eq('estado','activo').order('nombre').then(({data})=>setConductores(data||[]));
     supabase.from('rutas_transporte').select('codigo, nombre, origen, destino, distancia_km').eq('tipo','cana').eq('estado','activa').order('codigo').then(({data})=>setRutas(data||[]));
   },[]);
@@ -59,67 +65,96 @@ function EscanearTab() {
   },[]);
   useEffect(()=>{loadTickets();},[loadTickets]);
 
-  // Al seleccionar placa, si AI detectó chofer similar, hacer match
-  function matchAItoReal(aiPlaca:string, aiChofer:string) {
-    let placa = ''; let chofer = '';
-    // Buscar placa real más parecida
-    const placaClean = aiPlaca.replace(/[\s\-]/g,'').toUpperCase();
-    const found = vehiculos.find(v => v.placa.replace(/[\s\-]/g,'').toUpperCase() === placaClean);
-    if (found) placa = found.placa;
-    // Buscar conductor real por coincidencia de apellido
-    if (aiChofer) {
-      const parts = aiChofer.toLowerCase().split(/\s+/);
-      const match = conductores.find(c => parts.some((p:string) => p.length>3 && c.nombre.toLowerCase().includes(p)));
-      if (match) chofer = match.nombre;
+  function matchPlaca(aiPlaca:string) {
+    if(!aiPlaca) return '';
+    const clean = aiPlaca.replace(/[\s\-\.]/g,'').toUpperCase();
+    const found = vehiculos.find(v => v.placa.replace(/[\s\-]/g,'').toUpperCase() === clean);
+    return found?.placa || '';
+  }
+  function matchChofer(aiChofer:string) {
+    if(!aiChofer) return '';
+    const parts = aiChofer.toLowerCase().split(/[\s,]+/).filter((p:string)=>p.length>3);
+    // Try exact substring match on any name part
+    for (const part of parts) {
+      const m = conductores.find(c => c.nombre.toLowerCase().includes(part));
+      if (m) return m.nombre;
     }
-    return { placa, chofer };
+    return '';
+  }
+  function matchRuta(origen:string, destino:string) {
+    if(!origen && !destino) return '';
+    const o = (origen||'').toLowerCase(); const d = (destino||'').toLowerCase();
+    const m = rutas.find(r =>
+      (o && (r.origen.toLowerCase().includes(o) || o.includes(r.origen.toLowerCase().split('(')[0].trim()))) ||
+      (d && (r.destino.toLowerCase().includes(d) || d.includes(r.destino.toLowerCase().split('(')[0].trim())))
+    );
+    return m ? m.codigo+' '+m.nombre : '';
   }
 
-  function handleNativeCapture(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if(!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); processImageAI(d); };
     reader.readAsDataURL(file);
     e.target.value = '';
   }
-  function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => { const d = ev.target?.result as string; setCapturedImage(d); processImageAI(d); };
-    reader.readAsDataURL(file);
-  }
 
   async function processImageAI(imageData: string) {
-    setAiProcessing(true); setAiResults(null); setMsg('');
+    setAiProcessing(true); setAiData(null); setMsg('');
     try {
       const res = await fetch('/api/ocr-ticket', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({image:imageData}) });
       const json = await res.json();
       if (!res.ok||json.error) { setMsg('⚠️ '+(json.error||'Error procesando')); setAiProcessing(false); return; }
       const d = json.data;
-      const results: Record<string,string> = {};
-      results['confianza'] = d.confianza||'0';
+      setAiData(d);
 
-      // Hacer match contra data real
-      const matched = matchAItoReal(d.placa||'', d.chofer||'');
-      const placaFinal = matched.placa || d.placa || '';
-      const choferFinal = matched.chofer || d.chofer || '';
+      const placaMatch = matchPlaca(d.placa||'');
+      const choferMatch = matchChofer(d.chofer||'');
+      const rutaMatch = matchRuta(d.origen||'', d.destino||'');
 
-      results['_placa'] = placaFinal; results['_chofer'] = choferFinal;
-      results['_pesoBruto'] = d.pesoBruto||''; results['_tara'] = d.tara||'';
-      results['_bascula'] = d.bascula||''; results['_parcela'] = d.parcela||d.origen||'';
-      results['_impurezas'] = d.impurezas||''; results['_observaciones'] = d.observaciones||'';
-      if (matched.placa && matched.placa !== d.placa) results['_matchInfo'] = `Placa corregida: ${d.placa} → ${matched.placa}`;
-      if (matched.chofer && matched.chofer !== d.chofer) results['_matchChofer'] = `Chofer identificado: ${d.chofer} → ${matched.chofer}`;
-
-      setAiResults(results);
-      setForm(f=>({...f, vehiculo_placa:placaFinal, chofer:choferFinal, peso_bruto:d.pesoBruto||f.peso_bruto, tara:d.tara||f.tara, bascula:d.bascula||f.bascula, parcela:d.parcela||d.origen||f.parcela, impurezas:d.impurezas||f.impurezas, observaciones:d.observaciones||f.observaciones}));
+      setForm(f=>({...f,
+        vehiculo_placa: placaMatch || f.vehiculo_placa,
+        chofer: choferMatch || f.chofer,
+        ruta: rutaMatch || f.ruta,
+        numero_ticket: d.ticket || '',
+        fecha_pesaje: d.fecha || '',
+        hora_pesaje: d.hora || '',
+        peso_bruto: d.pesoBruto || '',
+        tara: d.tara || '',
+        bascula: d.bascula || f.bascula,
+        parcela: d.parcela || d.origen || '',
+        impurezas: d.impurezas || '0',
+        transportista: d.transportista || d.empresa || '',
+        variedad: d.variedad || '',
+        guia_remision: d.guiaRemision || '',
+        nro_viaje: d.nroViaje || '',
+        turno: d.turno || f.turno,
+        producto: d.producto || 'caña de azucar',
+        origen: d.origen || '',
+        destino: d.destino || '',
+        unidad_peso: d.unidadPeso || 'TM',
+        fecha_peso_bruto: d.fechaPesoBruto || '',
+        hora_peso_bruto: d.horaPesoBruto || '',
+        fecha_tara: d.fechaTara || '',
+        hora_tara: d.horaTara || '',
+        observaciones: d.observaciones || '',
+      }));
       setShowForm(true);
 
-      const matchMsgs: string[] = [];
-      if (matched.placa) matchMsgs.push(`Placa: ${matched.placa}`);
-      if (matched.chofer) matchMsgs.push(`Conductor: ${matched.chofer}`);
-      const matchStr = matchMsgs.length > 0 ? ' — Identificados: ' + matchMsgs.join(', ') : '';
-      setMsg('✅ Confianza: '+(d.confianza||'?')+'%' + matchStr + ' — Verifique y registre');
+      const matches: string[] = [];
+      if(placaMatch) matches.push('Vehículo: '+placaMatch);
+      if(choferMatch) matches.push('Conductor: '+choferMatch);
+      if(rutaMatch) matches.push('Ruta identificada');
+      const extracted: string[] = [];
+      if(d.ticket) extracted.push('Ticket: '+d.ticket);
+      if(d.fecha) extracted.push('Fecha: '+d.fecha);
+      if(d.pesoBruto) extracted.push('Bruto: '+d.pesoBruto);
+      if(d.tara) extracted.push('Tara: '+d.tara);
+
+      setMsg('✅ Confianza: '+(d.confianza||'?')+'%' +
+        (matches.length?' | '+matches.join(', '):'') +
+        (extracted.length?' | '+extracted.join(', '):'') +
+        ' — Verifique todos los campos');
     } catch(err:any) { setMsg('⚠️ Error: '+(err.message||'Sin conexión')); }
     finally { setAiProcessing(false); }
   }
@@ -132,143 +167,232 @@ function EscanearTab() {
     setLoading(true); setMsg('');
     const pesoB=parseFloat(form.peso_bruto)||0, taraV=parseFloat(form.tara)||0, neto=pesoB-taraV;
     const ahora = new Date();
-    const ticket = 'TK-'+ahora.toISOString().slice(2,10).replace(/-/g,'')+'-'+String(ahora.getTime()).slice(-4);
+    const ticket = form.numero_ticket || 'TK-'+ahora.toISOString().slice(2,10).replace(/-/g,'')+'-'+String(ahora.getTime()).slice(-4);
     const {data:{user}} = await supabase.auth.getUser();
-    const record:any = {ticket, vehiculo_placa:form.vehiculo_placa, chofer:form.chofer, tipo:form.tipo, peso_bruto:pesoB, tara:taraV, peso_neto:neto, bascula:form.bascula, observaciones:form.observaciones+(form.ruta?' | Ruta: '+form.ruta:''), estado:'pendiente', origen_registro:'conductor_pwa', parcela:form.parcela, impurezas:parseFloat(form.impurezas)||0};
+
+    const obs = [
+      form.observaciones,
+      form.ruta ? 'Ruta: '+form.ruta : '',
+      form.transportista ? 'Transportista: '+form.transportista : '',
+      form.variedad ? 'Variedad: '+form.variedad : '',
+      form.guia_remision ? 'GR: '+form.guia_remision : '',
+      form.nro_viaje ? 'Viaje #'+form.nro_viaje : '',
+      form.producto !== 'caña de azucar' ? 'Producto: '+form.producto : '',
+      form.fecha_peso_bruto ? 'Fecha Bruto: '+form.fecha_peso_bruto+' '+form.hora_peso_bruto : '',
+      form.fecha_tara ? 'Fecha Tara: '+form.fecha_tara+' '+form.hora_tara : '',
+    ].filter(Boolean).join(' | ');
+
+    const record: any = {
+      ticket,
+      vehiculo_placa: form.vehiculo_placa,
+      chofer: form.chofer,
+      tipo: form.tipo,
+      peso_bruto: pesoB,
+      tara: taraV,
+      peso_neto: neto,
+      bascula: form.bascula,
+      observaciones: obs,
+      estado: 'pendiente',
+      origen_registro: 'conductor_pwa',
+      parcela: form.parcela,
+      impurezas: parseFloat(form.impurezas)||0,
+    };
     if(user?.id) record.user_id = user.id;
     const {error} = await supabase.from('registros_pesaje_temporal').insert(record);
     if(error) setMsg('Error: '+error.message);
-    else { setMsg('✅ Ticket '+ticket+' registrado ('+form.vehiculo_placa+' / '+form.chofer+')'); setForm({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0',ruta:''}); setCapturedImage(null); setAiResults(null); setShowForm(false); loadTickets(); }
+    else {
+      setMsg('✅ Ticket '+ticket+' registrado ('+form.vehiculo_placa+' / '+form.chofer+' / Neto: '+neto.toFixed(2)+' '+form.unidad_peso+')');
+      setForm({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1 - Ingenio Laredo',observaciones:'',parcela:'',impurezas:'0',ruta:'',numero_ticket:'',fecha_pesaje:'',hora_pesaje:'',transportista:'',variedad:'',guia_remision:'',nro_viaje:'',turno:'diurno',producto:'caña de azucar',origen:'',destino:'',unidad_peso:'TM',fecha_peso_bruto:'',hora_peso_bruto:'',fecha_tara:'',hora_tara:''});
+      setCapturedImage(null); setAiData(null); setShowForm(false); loadTickets();
+    }
     setLoading(false);
   }
+
+  const F = ({label,field,placeholder,type,half,third}:{label:string;field:string;placeholder?:string;type?:string;half?:boolean;third?:boolean}) => (
+    <div className={half?'col-span-1':third?'col-span-1':''}>
+      <label className="text-[10px] text-slate-400 block mb-0.5 uppercase tracking-wide">{label}</label>
+      <input type={type||'text'} step={type==='number'?'0.01':undefined} value={(form as any)[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))} placeholder={placeholder} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm"/>
+    </div>
+  );
 
   return (<div className="space-y-4">
     {msg&&<div className={`p-3 rounded-xl text-sm ${msg.includes('Error')||msg.includes('⚠')?'bg-red-900/30 border border-red-700 text-red-400':'bg-green-900/30 border border-green-700 text-green-400'}`}>{msg}</div>}
 
-    {/* Scanner Zone */}
     {!capturedImage && !showForm && (
       <div className="bg-slate-800 border border-purple-700/30 rounded-xl p-6 text-center">
         <Brain className="w-12 h-12 text-purple-400 mx-auto mb-3"/>
         <h3 className="text-lg font-bold text-white mb-1">Escanear Ticket de Báscula</h3>
-        <p className="text-xs text-slate-400 mb-2">Toma una foto del ticket — la IA identifica placa, conductor y pesos del sistema</p>
-        <p className="text-xs text-emerald-400 mb-5">{vehiculos.length} vehículos • {conductores.length} conductores • {rutas.length} rutas cargadas</p>
-        <input ref={nativeCaptureRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleNativeCapture}/>
-        <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileImport}/>
+        <p className="text-xs text-slate-400 mb-1">Toma foto del ticket — la IA extrae TODOS los datos</p>
+        <p className="text-xs text-emerald-400 mb-5">{vehiculos.length} vehículos • {conductores.length} conductores • {rutas.length} rutas</p>
+        <input ref={nativeCaptureRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCapture}/>
+        <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleCapture}/>
         <div className="flex flex-col gap-3">
-          <button onClick={()=>nativeCaptureRef.current?.click()} className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-base flex items-center justify-center gap-3 shadow-lg shadow-purple-900/30">
-            <Camera className="w-6 h-6"/> Tomar Foto del Ticket
-          </button>
-          <button onClick={()=>fileInputRef.current?.click()} className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2">
-            <Upload className="w-4 h-4"/> Importar Imagen
-          </button>
-          <button onClick={()=>setShowForm(true)} className="text-slate-500 text-xs underline">Registrar manualmente sin foto</button>
+          <button onClick={()=>nativeCaptureRef.current?.click()} className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-base flex items-center justify-center gap-3 shadow-lg shadow-purple-900/30"><Camera className="w-6 h-6"/> Tomar Foto del Ticket</button>
+          <button onClick={()=>fileInputRef.current?.click()} className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2"><Upload className="w-4 h-4"/> Importar Imagen</button>
+          <button onClick={()=>setShowForm(true)} className="text-slate-500 text-xs underline">Registro manual sin foto</button>
         </div>
       </div>
     )}
 
-    {/* AI Processing */}
     {aiProcessing && (
       <div className="bg-purple-900/20 border border-purple-700/30 rounded-xl p-6 text-center">
-        <div className="relative inline-block mb-3">
-          <Brain className="w-10 h-10 text-purple-400 animate-pulse"/>
-          <Loader2 className="w-5 h-5 text-purple-300 animate-spin absolute -top-1 -right-1"/>
-        </div>
+        <div className="relative inline-block mb-3"><Brain className="w-10 h-10 text-purple-400 animate-pulse"/><Loader2 className="w-5 h-5 text-purple-300 animate-spin absolute -top-1 -right-1"/></div>
         <p className="text-purple-300 font-semibold">Analizando ticket con IA...</p>
-        <p className="text-xs text-slate-500 mt-1">Identificando vehículo y conductor en el sistema</p>
+        <p className="text-xs text-slate-500 mt-1">Extrayendo todos los campos del documento</p>
       </div>
     )}
 
-    {/* Preview */}
     {capturedImage && !aiProcessing && (
       <div className="relative rounded-xl overflow-hidden border border-slate-700">
         <img src={capturedImage} alt="Ticket" className="w-full max-h-48 object-contain bg-black"/>
-        <button onClick={()=>{setCapturedImage(null);setAiResults(null);setShowForm(false);}} className="absolute top-2 right-2 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center">✕</button>
+        <button onClick={()=>{setCapturedImage(null);setAiData(null);setShowForm(false);}} className="absolute top-2 right-2 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center">✕</button>
       </div>
     )}
 
-    {/* AI match info */}
-    {aiResults?.['_matchInfo'] && <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2 text-xs text-blue-400">{aiResults['_matchInfo']}</div>}
-    {aiResults?.['_matchChofer'] && <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2 text-xs text-blue-400">{aiResults['_matchChofer']}</div>}
-
-    {/* Form with real data */}
     {showForm && (
       <form onSubmit={submitTicket} className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          {aiResults?<><Check className="w-4 h-4 text-green-400"/>Datos identificados — Verifique</>:<>Registro Manual</>}
+          {aiData?<><Check className="w-4 h-4 text-green-400"/>Datos extraídos del ticket — Verifique todos los campos</>:<>Registro Manual de Pesaje</>}
         </h3>
 
-        {/* Vehículo - SELECT real */}
-        <div>
-          <label className="text-xs text-slate-400 block mb-1">Vehículo *</label>
-          <select value={form.vehiculo_placa} onChange={e=>setForm(f=>({...f,vehiculo_placa:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
-            <option value="">— Seleccionar vehículo —</option>
-            {vehiculos.map(v=><option key={v.placa} value={v.placa}>{v.placa} — {v.marca} {v.modelo}</option>)}
-          </select>
+        {/* SECCIÓN 1: Identificación del ticket */}
+        <div className="bg-slate-900/50 rounded-lg p-3 space-y-2">
+          <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Identificación del Ticket</p>
+          <div className="grid grid-cols-3 gap-2">
+            <F label="Nro. Ticket / Boleta" field="numero_ticket" placeholder="TK-001"/>
+            <F label="Fecha Pesaje" field="fecha_pesaje" placeholder="01/03/2026"/>
+            <F label="Hora" field="hora_pesaje" placeholder="14:30"/>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="Transportista / Empresa" field="transportista" placeholder="Grupo Galarreta"/>
+            <F label="Guía de Remisión" field="guia_remision" placeholder="T001-00456"/>
+          </div>
         </div>
 
-        {/* Conductor - SELECT real */}
-        <div>
-          <label className="text-xs text-slate-400 block mb-1">Conductor *</label>
-          <select value={form.chofer} onChange={e=>setForm(f=>({...f,chofer:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
-            <option value="">— Seleccionar conductor —</option>
-            {conductores.map(c=><option key={c.dni} value={c.nombre}>{c.nombre} (DNI: {c.dni})</option>)}
-          </select>
+        {/* SECCIÓN 2: Vehículo y Conductor (selectores reales) */}
+        <div className="bg-slate-900/50 rounded-lg p-3 space-y-2">
+          <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Vehículo y Conductor</p>
+          <div>
+            <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Vehículo *</label>
+            <select value={form.vehiculo_placa} onChange={e=>setForm(f=>({...f,vehiculo_placa:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+              <option value="">— Seleccionar vehículo —</option>
+              {vehiculos.map(v=><option key={v.placa} value={v.placa}>{v.placa} — {v.marca} {v.modelo}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Conductor *</label>
+            <select value={form.chofer} onChange={e=>setForm(f=>({...f,chofer:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+              <option value="">— Seleccionar conductor —</option>
+              {conductores.map(c=><option key={c.dni} value={c.nombre}>{c.nombre} (DNI: {c.dni})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Ruta</label>
+            <select value={form.ruta} onChange={e=>setForm(f=>({...f,ruta:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+              <option value="">— Seleccionar ruta —</option>
+              {rutas.map(r=><option key={r.codigo} value={r.codigo+' '+r.nombre}>{r.codigo} | {r.origen} → {r.destino} ({r.distancia_km} km)</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Ruta - SELECT real */}
-        <div>
-          <label className="text-xs text-slate-400 block mb-1">Ruta</label>
-          <select value={form.ruta} onChange={e=>setForm(f=>({...f,ruta:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
-            <option value="">— Seleccionar ruta —</option>
-            {rutas.map(r=><option key={r.codigo} value={r.codigo+' '+r.nombre}>{r.codigo} | {r.origen} → {r.destino} ({r.distancia_km} km)</option>)}
-          </select>
+        {/* SECCIÓN 3: Pesaje */}
+        <div className="bg-slate-900/50 rounded-lg p-3 space-y-2">
+          <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Datos de Pesaje</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Tipo</label>
+              <select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+                <option value="entrada">Entrada (Peso Bruto)</option><option value="salida">Salida (Tara)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Báscula</label>
+              <select value={form.bascula} onChange={e=>setForm(f=>({...f,bascula:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+                <option>Bascula 1 - Ingenio Laredo</option><option>Bascula 2 - Ingenio Laredo</option><option>Bascula 3 - Casa Grande</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Peso Bruto ({form.unidad_peso}) *</label>
+              <input type="number" step="0.01" value={form.peso_bruto} onChange={e=>setForm(f=>({...f,peso_bruto:e.target.value}))} required placeholder="38.50" className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Tara ({form.unidad_peso}) *</label>
+              <input type="number" step="0.01" value={form.tara} onChange={e=>setForm(f=>({...f,tara:e.target.value}))} required placeholder="16.20" className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm"/>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Peso Neto ({form.unidad_peso})</label>
+              <div className={`w-full rounded-lg px-2.5 py-2 text-sm font-bold text-center ${pesoNeto>0?'bg-emerald-900/30 border border-emerald-700 text-emerald-400':'bg-slate-700 border border-slate-600 text-slate-500'}`}>{pesoNeto>0?pesoNeto.toFixed(2):'--.--'}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="Fecha/Hora Peso Bruto" field="fecha_peso_bruto" placeholder="01/03/2026 08:30"/>
+            <F label="Fecha/Hora Tara" field="fecha_tara" placeholder="01/03/2026 09:15"/>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <F label="Unidad Peso" field="unidad_peso" placeholder="TM"/>
+            <F label="Nro. Viaje" field="nro_viaje" placeholder="1"/>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Turno</label>
+              <select value={form.turno} onChange={e=>setForm(f=>({...f,turno:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm">
+                <option value="diurno">Diurno</option><option value="nocturno">Nocturno</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">Tipo</label><select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option value="entrada">Entrada (Peso Bruto)</option><option value="salida">Salida (Tara)</option></select></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Báscula</label><select value={form.bascula} onChange={e=>setForm(f=>({...f,bascula:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option>Bascula 1 - Ingenio Laredo</option><option>Bascula 2 - Ingenio Laredo</option><option>Bascula 3 - Casa Grande</option></select></div>
+        {/* SECCIÓN 4: Producto y Campo */}
+        <div className="bg-slate-900/50 rounded-lg p-3 space-y-2">
+          <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Producto y Campo</p>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="Producto" field="producto" placeholder="Caña de azúcar"/>
+            <F label="Variedad" field="variedad" placeholder="H32-8560"/>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="Parcela / Frente" field="parcela" placeholder="Frente Norte"/>
+            <F label="Impurezas %" field="impurezas" type="number" placeholder="3.5"/>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <F label="Origen" field="origen" placeholder="Campo La Cuesta"/>
+            <F label="Destino" field="destino" placeholder="Ingenio Laredo"/>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">P. Bruto (TM) *</label><input type="number" step="0.01" value={form.peso_bruto} onChange={e=>setForm(f=>({...f,peso_bruto:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="38.50"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Tara (TM) *</label><input type="number" step="0.01" value={form.tara} onChange={e=>setForm(f=>({...f,tara:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="16.20"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">P. Neto (TM)</label><div className={`w-full rounded-lg px-3 py-2 text-sm font-bold text-center ${pesoNeto>0?'bg-emerald-900/30 border border-emerald-700 text-emerald-400':'bg-slate-700 border border-slate-600 text-slate-500'}`}>{pesoNeto>0?pesoNeto.toFixed(2):'--.--'}</div></div>
+
+        {/* SECCIÓN 5: Observaciones */}
+        <div>
+          <label className="text-[10px] text-slate-400 block mb-0.5 uppercase">Observaciones / Datos Adicionales</label>
+          <textarea value={form.observaciones} onChange={e=>setForm(f=>({...f,observaciones:e.target.value}))} rows={2} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-2 text-sm resize-none" placeholder="Caña 2do corte, buen estado, sin hojas"/>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">Parcela / Frente</label><input value={form.parcela} onChange={e=>setForm(f=>({...f,parcela:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="Frente Norte"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Impurezas %</label><input type="number" step="0.1" value={form.impurezas} onChange={e=>setForm(f=>({...f,impurezas:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="3.5"/></div>
-        </div>
-        <div><label className="text-xs text-slate-400 block mb-1">Observaciones</label><input value={form.observaciones} onChange={e=>setForm(f=>({...f,observaciones:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="Ej: Caña de 2do corte, variedad H32-8560"/></div>
-        <button type="submit" disabled={loading} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center justify-center gap-2">
+
+        <button type="submit" disabled={loading} className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-base">
           {loading?<Loader2 className="w-5 h-5 animate-spin"/>:<ScanLine className="w-5 h-5"/>}
           {loading?'Registrando...':'Registrar Ticket de Pesaje'}
         </button>
       </form>
     )}
 
-    {/* Recent Tickets */}
+    {/* Tickets recientes */}
     <div className="bg-slate-800 border border-slate-700 rounded-xl">
       <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">Mis Tickets Recientes</h3>
-        <span className="text-xs text-slate-400">{tickets.length} registros</span>
+        <h3 className="text-sm font-semibold text-white">Tickets Recientes</h3>
+        <span className="text-xs text-slate-400">{tickets.length}</span>
       </div>
       {tickets.slice(0,5).map(t=>(
         <div key={t.id} className="px-4 py-3 border-b border-slate-700/50 last:border-0">
           <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-mono font-bold text-white">{t.ticket}</span>
-              <span className="text-xs text-slate-400 ml-2">{t.vehiculo_placa}</span>
-            </div>
+            <div><span className="text-sm font-mono font-bold text-white">{t.ticket}</span><span className="text-xs text-slate-400 ml-2">{t.vehiculo_placa}</span></div>
             <span className={`px-2 py-0.5 rounded text-xs ${t.estado==='aprobado'?'bg-green-900/50 text-green-400':t.estado==='rechazado'?'bg-red-900/50 text-red-400':'bg-yellow-900/50 text-yellow-400'}`}>{t.estado}</span>
           </div>
-          <div className="text-xs text-slate-500 mt-1">{t.chofer}</div>
-          <div className="flex items-center gap-4 mt-0.5 text-xs text-slate-500">
-            <span>Bruto: {Number(t.peso_bruto||0).toFixed(2)} TM</span>
-            <span>Tara: {Number(t.tara||0).toFixed(2)} TM</span>
+          <div className="text-xs text-slate-500 mt-0.5">{t.chofer}</div>
+          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
+            <span>Bruto: {Number(t.peso_bruto||0).toFixed(2)}</span>
+            <span>Tara: {Number(t.tara||0).toFixed(2)}</span>
             <span className="text-emerald-400 font-semibold">Neto: {Number(t.peso_neto||0).toFixed(2)} TM</span>
           </div>
         </div>
       ))}
-      {tickets.length===0&&<div className="p-6 text-center text-slate-500 text-sm">Sin tickets registrados</div>}
+      {tickets.length===0&&<div className="p-6 text-center text-slate-500 text-sm">Sin tickets</div>}
     </div>
   </div>);
 }
