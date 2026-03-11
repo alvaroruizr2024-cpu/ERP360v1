@@ -35,19 +35,45 @@ function EscanearTab() {
   const [capturedImage, setCapturedImage] = useState<string|null>(null);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiResults, setAiResults] = useState<Record<string,string>|null>(null);
-  const [form, setForm] = useState({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0'});
+  const [form, setForm] = useState({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0',ruta:''});
   const [loading, setLoading] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [vehiculos, setVehiculos] = useState<any[]>([]);
+  const [conductores, setConductores] = useState<any[]>([]);
+  const [rutas, setRutas] = useState<any[]>([]);
   const nativeCaptureRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pesoNeto = (parseFloat(form.peso_bruto)||0) - (parseFloat(form.tara)||0);
+
+  // Cargar data real del sistema
+  useEffect(()=>{
+    supabase.from('vehiculos').select('placa, marca, modelo, tipo').eq('tipo','camion').order('placa').then(({data})=>setVehiculos(data||[]));
+    supabase.from('conductores').select('nombre, dni, telefono').eq('estado','activo').order('nombre').then(({data})=>setConductores(data||[]));
+    supabase.from('rutas_transporte').select('codigo, nombre, origen, destino, distancia_km').eq('tipo','cana').eq('estado','activa').order('codigo').then(({data})=>setRutas(data||[]));
+  },[]);
 
   const loadTickets = useCallback(async()=>{
     const {data} = await supabase.from('registros_pesaje_temporal').select('*').order('created_at',{ascending:false}).limit(20);
     setTickets(data||[]);
   },[]);
   useEffect(()=>{loadTickets();},[loadTickets]);
+
+  // Al seleccionar placa, si AI detectó chofer similar, hacer match
+  function matchAItoReal(aiPlaca:string, aiChofer:string) {
+    let placa = ''; let chofer = '';
+    // Buscar placa real más parecida
+    const placaClean = aiPlaca.replace(/[\s\-]/g,'').toUpperCase();
+    const found = vehiculos.find(v => v.placa.replace(/[\s\-]/g,'').toUpperCase() === placaClean);
+    if (found) placa = found.placa;
+    // Buscar conductor real por coincidencia de apellido
+    if (aiChofer) {
+      const parts = aiChofer.toLowerCase().split(/\s+/);
+      const match = conductores.find(c => parts.some((p:string) => p.length>3 && c.nombre.toLowerCase().includes(p)));
+      if (match) chofer = match.nombre;
+    }
+    return { placa, chofer };
+  }
 
   function handleNativeCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if(!file) return;
@@ -72,29 +98,47 @@ function EscanearTab() {
       const d = json.data;
       const results: Record<string,string> = {};
       results['confianza'] = d.confianza||'0';
-      results['_placa'] = d.placa||''; results['_chofer'] = d.chofer||'';
+
+      // Hacer match contra data real
+      const matched = matchAItoReal(d.placa||'', d.chofer||'');
+      const placaFinal = matched.placa || d.placa || '';
+      const choferFinal = matched.chofer || d.chofer || '';
+
+      results['_placa'] = placaFinal; results['_chofer'] = choferFinal;
       results['_pesoBruto'] = d.pesoBruto||''; results['_tara'] = d.tara||'';
       results['_bascula'] = d.bascula||''; results['_parcela'] = d.parcela||d.origen||'';
       results['_impurezas'] = d.impurezas||''; results['_observaciones'] = d.observaciones||'';
+      if (matched.placa && matched.placa !== d.placa) results['_matchInfo'] = `Placa corregida: ${d.placa} → ${matched.placa}`;
+      if (matched.chofer && matched.chofer !== d.chofer) results['_matchChofer'] = `Chofer identificado: ${d.chofer} → ${matched.chofer}`;
+
       setAiResults(results);
-      // Auto-apply
-      setForm(f=>({...f, vehiculo_placa:d.placa||f.vehiculo_placa, chofer:d.chofer||f.chofer, peso_bruto:d.pesoBruto||f.peso_bruto, tara:d.tara||f.tara, bascula:d.bascula||f.bascula, parcela:d.parcela||d.origen||f.parcela, impurezas:d.impurezas||f.impurezas, observaciones:d.observaciones||f.observaciones}));
+      setForm(f=>({...f, vehiculo_placa:placaFinal, chofer:choferFinal, peso_bruto:d.pesoBruto||f.peso_bruto, tara:d.tara||f.tara, bascula:d.bascula||f.bascula, parcela:d.parcela||d.origen||f.parcela, impurezas:d.impurezas||f.impurezas, observaciones:d.observaciones||f.observaciones}));
       setShowForm(true);
-      setMsg('✅ Datos extraídos — Confianza: '+(d.confianza||'?')+'% — Verifique y registre');
+
+      const matchMsgs: string[] = [];
+      if (matched.placa) matchMsgs.push(`Placa: ${matched.placa}`);
+      if (matched.chofer) matchMsgs.push(`Conductor: ${matched.chofer}`);
+      const matchStr = matchMsgs.length > 0 ? ' — Identificados: ' + matchMsgs.join(', ') : '';
+      setMsg('✅ Confianza: '+(d.confianza||'?')+'%' + matchStr + ' — Verifique y registre');
     } catch(err:any) { setMsg('⚠️ Error: '+(err.message||'Sin conexión')); }
     finally { setAiProcessing(false); }
   }
 
   async function submitTicket(e: React.FormEvent) {
-    e.preventDefault(); setLoading(true); setMsg('');
+    e.preventDefault();
+    if (!form.vehiculo_placa) { setMsg('⚠️ Seleccione un vehículo'); return; }
+    if (!form.chofer) { setMsg('⚠️ Seleccione un conductor'); return; }
+    if (!form.peso_bruto || !form.tara) { setMsg('⚠️ Ingrese peso bruto y tara'); return; }
+    setLoading(true); setMsg('');
     const pesoB=parseFloat(form.peso_bruto)||0, taraV=parseFloat(form.tara)||0, neto=pesoB-taraV;
-    const ticket = 'TK-'+String(Date.now()).slice(-6);
+    const ahora = new Date();
+    const ticket = 'TK-'+ahora.toISOString().slice(2,10).replace(/-/g,'')+'-'+String(ahora.getTime()).slice(-4);
     const {data:{user}} = await supabase.auth.getUser();
-    const record:any = {ticket, vehiculo_placa:form.vehiculo_placa, chofer:form.chofer, tipo:form.tipo, peso_bruto:pesoB, tara:taraV, peso_neto:neto, bascula:form.bascula, observaciones:form.observaciones, estado:'pendiente', origen_registro:'conductor_pwa', parcela:form.parcela, impurezas:parseFloat(form.impurezas)||0};
+    const record:any = {ticket, vehiculo_placa:form.vehiculo_placa, chofer:form.chofer, tipo:form.tipo, peso_bruto:pesoB, tara:taraV, peso_neto:neto, bascula:form.bascula, observaciones:form.observaciones+(form.ruta?' | Ruta: '+form.ruta:''), estado:'pendiente', origen_registro:'conductor_pwa', parcela:form.parcela, impurezas:parseFloat(form.impurezas)||0};
     if(user?.id) record.user_id = user.id;
     const {error} = await supabase.from('registros_pesaje_temporal').insert(record);
     if(error) setMsg('Error: '+error.message);
-    else { setMsg('✅ Ticket '+ticket+' registrado — Pendiente aprobación'); setForm({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0'}); setCapturedImage(null); setAiResults(null); setShowForm(false); loadTickets(); }
+    else { setMsg('✅ Ticket '+ticket+' registrado ('+form.vehiculo_placa+' / '+form.chofer+')'); setForm({vehiculo_placa:'',chofer:'',tipo:'entrada',peso_bruto:'',tara:'',bascula:'Bascula 1',observaciones:'',parcela:'',impurezas:'0',ruta:''}); setCapturedImage(null); setAiResults(null); setShowForm(false); loadTickets(); }
     setLoading(false);
   }
 
@@ -106,7 +150,8 @@ function EscanearTab() {
       <div className="bg-slate-800 border border-purple-700/30 rounded-xl p-6 text-center">
         <Brain className="w-12 h-12 text-purple-400 mx-auto mb-3"/>
         <h3 className="text-lg font-bold text-white mb-1">Escanear Ticket de Báscula</h3>
-        <p className="text-xs text-slate-400 mb-5">Toma una foto del ticket y la IA extraerá los datos automáticamente</p>
+        <p className="text-xs text-slate-400 mb-2">Toma una foto del ticket — la IA identifica placa, conductor y pesos del sistema</p>
+        <p className="text-xs text-emerald-400 mb-5">{vehiculos.length} vehículos • {conductores.length} conductores • {rutas.length} rutas cargadas</p>
         <input ref={nativeCaptureRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleNativeCapture}/>
         <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileImport}/>
         <div className="flex flex-col gap-3">
@@ -129,7 +174,7 @@ function EscanearTab() {
           <Loader2 className="w-5 h-5 text-purple-300 animate-spin absolute -top-1 -right-1"/>
         </div>
         <p className="text-purple-300 font-semibold">Analizando ticket con IA...</p>
-        <p className="text-xs text-slate-500 mt-1">Extrayendo placa, pesos, báscula, parcela</p>
+        <p className="text-xs text-slate-500 mt-1">Identificando vehículo y conductor en el sistema</p>
       </div>
     )}
 
@@ -141,33 +186,61 @@ function EscanearTab() {
       </div>
     )}
 
-    {/* Form */}
+    {/* AI match info */}
+    {aiResults?.['_matchInfo'] && <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2 text-xs text-blue-400">{aiResults['_matchInfo']}</div>}
+    {aiResults?.['_matchChofer'] && <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2 text-xs text-blue-400">{aiResults['_matchChofer']}</div>}
+
+    {/* Form with real data */}
     {showForm && (
       <form onSubmit={submitTicket} className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          {aiResults?<><Check className="w-4 h-4 text-green-400"/>Datos extraídos — Verifique</>:<>Registro Manual</>}
+          {aiResults?<><Check className="w-4 h-4 text-green-400"/>Datos identificados — Verifique</>:<>Registro Manual</>}
         </h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">Placa *</label><input value={form.vehiculo_placa} onChange={e=>setForm(f=>({...f,vehiculo_placa:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="T4X-951"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Chofer</label><input value={form.chofer} onChange={e=>setForm(f=>({...f,chofer:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
+
+        {/* Vehículo - SELECT real */}
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Vehículo *</label>
+          <select value={form.vehiculo_placa} onChange={e=>setForm(f=>({...f,vehiculo_placa:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
+            <option value="">— Seleccionar vehículo —</option>
+            {vehiculos.map(v=><option key={v.placa} value={v.placa}>{v.placa} — {v.marca} {v.modelo}</option>)}
+          </select>
         </div>
+
+        {/* Conductor - SELECT real */}
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Conductor *</label>
+          <select value={form.chofer} onChange={e=>setForm(f=>({...f,chofer:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
+            <option value="">— Seleccionar conductor —</option>
+            {conductores.map(c=><option key={c.dni} value={c.nombre}>{c.nombre} (DNI: {c.dni})</option>)}
+          </select>
+        </div>
+
+        {/* Ruta - SELECT real */}
+        <div>
+          <label className="text-xs text-slate-400 block mb-1">Ruta</label>
+          <select value={form.ruta} onChange={e=>setForm(f=>({...f,ruta:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2.5 text-sm">
+            <option value="">— Seleccionar ruta —</option>
+            {rutas.map(r=><option key={r.codigo} value={r.codigo+' '+r.nombre}>{r.codigo} | {r.origen} → {r.destino} ({r.distancia_km} km)</option>)}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">Tipo</label><select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option value="entrada">Entrada</option><option value="salida">Salida</option></select></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Báscula</label><select value={form.bascula} onChange={e=>setForm(f=>({...f,bascula:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option>Bascula 1</option><option>Bascula 2</option><option>Bascula 3</option></select></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Tipo</label><select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option value="entrada">Entrada (Peso Bruto)</option><option value="salida">Salida (Tara)</option></select></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Báscula</label><select value={form.bascula} onChange={e=>setForm(f=>({...f,bascula:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"><option>Bascula 1 - Ingenio Laredo</option><option>Bascula 2 - Ingenio Laredo</option><option>Bascula 3 - Casa Grande</option></select></div>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">P. Bruto (kg) *</label><input type="number" value={form.peso_bruto} onChange={e=>setForm(f=>({...f,peso_bruto:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Tara (kg) *</label><input type="number" value={form.tara} onChange={e=>setForm(f=>({...f,tara:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">P. Neto</label><div className="w-full bg-emerald-900/30 border border-emerald-700 text-emerald-400 rounded-lg px-3 py-2 text-sm font-bold text-center">{pesoNeto.toLocaleString()} kg</div></div>
+          <div><label className="text-xs text-slate-400 block mb-1">P. Bruto (TM) *</label><input type="number" step="0.01" value={form.peso_bruto} onChange={e=>setForm(f=>({...f,peso_bruto:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="38.50"/></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Tara (TM) *</label><input type="number" step="0.01" value={form.tara} onChange={e=>setForm(f=>({...f,tara:e.target.value}))} required className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="16.20"/></div>
+          <div><label className="text-xs text-slate-400 block mb-1">P. Neto (TM)</label><div className={`w-full rounded-lg px-3 py-2 text-sm font-bold text-center ${pesoNeto>0?'bg-emerald-900/30 border border-emerald-700 text-emerald-400':'bg-slate-700 border border-slate-600 text-slate-500'}`}>{pesoNeto>0?pesoNeto.toFixed(2):'--.--'}</div></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs text-slate-400 block mb-1">Parcela</label><input value={form.parcela} onChange={e=>setForm(f=>({...f,parcela:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
-          <div><label className="text-xs text-slate-400 block mb-1">Impurezas %</label><input type="number" value={form.impurezas} onChange={e=>setForm(f=>({...f,impurezas:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Parcela / Frente</label><input value={form.parcela} onChange={e=>setForm(f=>({...f,parcela:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="Frente Norte"/></div>
+          <div><label className="text-xs text-slate-400 block mb-1">Impurezas %</label><input type="number" step="0.1" value={form.impurezas} onChange={e=>setForm(f=>({...f,impurezas:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="3.5"/></div>
         </div>
-        <div><label className="text-xs text-slate-400 block mb-1">Observaciones</label><input value={form.observaciones} onChange={e=>setForm(f=>({...f,observaciones:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"/></div>
+        <div><label className="text-xs text-slate-400 block mb-1">Observaciones</label><input value={form.observaciones} onChange={e=>setForm(f=>({...f,observaciones:e.target.value}))} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" placeholder="Ej: Caña de 2do corte, variedad H32-8560"/></div>
         <button type="submit" disabled={loading} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold flex items-center justify-center gap-2">
           {loading?<Loader2 className="w-5 h-5 animate-spin"/>:<ScanLine className="w-5 h-5"/>}
-          {loading?'Registrando...':'Registrar Ticket'}
+          {loading?'Registrando...':'Registrar Ticket de Pesaje'}
         </button>
       </form>
     )}
@@ -187,10 +260,11 @@ function EscanearTab() {
             </div>
             <span className={`px-2 py-0.5 rounded text-xs ${t.estado==='aprobado'?'bg-green-900/50 text-green-400':t.estado==='rechazado'?'bg-red-900/50 text-red-400':'bg-yellow-900/50 text-yellow-400'}`}>{t.estado}</span>
           </div>
-          <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
-            <span>Bruto: {t.peso_bruto?.toLocaleString()} kg</span>
-            <span>Tara: {t.tara?.toLocaleString()} kg</span>
-            <span className="text-emerald-400 font-semibold">Neto: {t.peso_neto?.toLocaleString()} kg</span>
+          <div className="text-xs text-slate-500 mt-1">{t.chofer}</div>
+          <div className="flex items-center gap-4 mt-0.5 text-xs text-slate-500">
+            <span>Bruto: {Number(t.peso_bruto||0).toFixed(2)} TM</span>
+            <span>Tara: {Number(t.tara||0).toFixed(2)} TM</span>
+            <span className="text-emerald-400 font-semibold">Neto: {Number(t.peso_neto||0).toFixed(2)} TM</span>
           </div>
         </div>
       ))}
